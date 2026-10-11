@@ -2854,6 +2854,25 @@ def detect_stack(repo: Path) -> dict:
     return ProjectProfiler(repo).detect_stack()
 
 
+# Generated deny-reads that only make sense for one toolchain: (rule, stack keys, any of which enables it).
+_DENY_READ_STACK = {
+    "Read(**/node_modules/**)": ("pm",),
+    "Read(**/.venv/**)": ("python",),
+    "Read(**/__pycache__/**)": ("python",),
+    "Read(**/.mypy_cache/**)": ("python",),
+    "Read(**/.ruff_cache/**)": ("python",),
+    "Read(**/coverage/**)": ("python", "pm"),
+    "Read(**/.next/**)": ("pm",),
+    "Read(**/dist/**)": ("pm",),
+    "Read(**/*.min.js)": ("pm",),
+    "Read(**/*.map)": ("pm",),
+}
+
+
+def _in_stack(stack: dict, keys: tuple[str, ...]) -> bool:
+    return any(stack.get(k) for k in keys)
+
+
 def generated_permissions(stack: dict, policy: dict) -> dict:
     g, perms = policy["generate"], policy["permissions"]
     allow = [
@@ -2899,9 +2918,11 @@ def generated_permissions(stack: dict, policy: dict) -> dict:
             "Bash(docker compose ps *)",
             "Bash(docker compose logs *)",
             "Bash(docker compose config *)",
+        ]
+        ask += [
             "Bash(docker compose up *)",
             "Bash(docker compose down *)",
-        ]
+        ]  # start/stop containers: needs a confirmation
     if stack["k8s"] or stack["helm"]:
         allow += [
             "Bash(kubectl get *)",
@@ -2928,10 +2949,10 @@ def generated_permissions(stack: dict, policy: dict) -> dict:
             "Bash(gh run view *)",
         ]
     allow += g["extra_allow"]
+    # External-action asks stay unconditional: they override a user-scope allow even when stack detection misses a tool.
     ask += [f"Bash({p} *)" for p in perms["external_action_prefixes"]] + g["extra_ask"]
-    deny = (
-        list(perms["required_deny"]) + GENERATED_DENY_READS + (UNITY_DENY if stack["unity"] else []) + g["extra_deny"]
-    )
+    reads = [r for r in GENERATED_DENY_READS if r not in _DENY_READ_STACK or _in_stack(stack, _DENY_READ_STACK[r])]
+    deny = list(perms["required_deny"]) + reads + (UNITY_DENY if stack["unity"] else []) + g["extra_deny"]
     if perms["require_rtk"]:
         allow = [rtk_wrap(r, perms["rtk_exempt"]) if (c := command_of(r)) and rtk_rewrites(c) else r for r in allow]
         if perms.get("rtk_twin_deny", True):
