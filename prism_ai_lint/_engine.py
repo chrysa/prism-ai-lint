@@ -3023,6 +3023,15 @@ def merge_rules(existing: list[str], wanted: list[str]) -> list[str]:
     return out
 
 
+def _sorted_deep(obj: Any) -> Any:
+    """Return obj with every dict's keys in sorted order (lists keep their order)."""
+    if isinstance(obj, dict):
+        return {k: _sorted_deep(obj[k]) for k in sorted(obj)}
+    if isinstance(obj, list):
+        return [_sorted_deep(v) for v in obj]
+    return obj
+
+
 def write_json_merged(path: Path, wanted: dict, rep: Report, what: str) -> None:
     raw = rep.current(path)
     try:
@@ -3064,6 +3073,9 @@ def write_json_merged(path: Path, wanted: dict, rep: Report, what: str) -> None:
             new.setdefault(k, v)
     if new == data:
         return
+    # A file whose keys are already sorted (a json-sorter pre-commit hook) stays sorted: key order carries no meaning.
+    if raw is not None and isinstance(data, dict) and json.dumps(data) == json.dumps(_sorted_deep(data)):
+        new = _sorted_deep(new)
     added = []
     for lst in ("allow", "ask", "deny"):
         n = len((new.get("permissions") or {}).get(lst) or []) - len(
