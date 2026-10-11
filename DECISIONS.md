@@ -9,6 +9,19 @@ records *why*. Newest first. Each entry: decision, why, and what would reverse i
 `[restructure] keep_in_instructions` (non-negotiable, must, never, rules, conventions, security...). **Why:** a
 "Non-negotiable conventions" section moved to a skill is loaded only when the model decides to read it;
 rules must stay always-loaded, procedures may not. A plain word list, not a regex: the policy is untrusted.
+||||||| parent of c22a781 (feat: generate deny-reads and external-action asks only for the toolchains the project uses)
+## D-030 · Generated settings default to the cheapest model and effort
+`--generate` writes `model = "haiku"` and `effortLevel = "low"` into a project's settings when
+absent (`[generate] default_model`, `default_effort`; `""` disables). **Why:** the tool ranks work by
+tokens saved; a project that never chose gets the cheapest session. An existing value always wins
+(`setdefault`), and the policy values are untrusted: only a known alias and a known level are written.
+
+## D-029 · Generated permissions follow the detected stack
+`--generate` writes deny-reads and external-action `ask` rules only for toolchains the project uses
+(Python caches only for Python, `node_modules`/`.next`/`dist` only with a package manager, cluster and
+Terraform asks only with those tools); `git push` and `rm -rf` always stay. **Why:** the goal is a
+configuration as close to the project as possible; rules for absent tools are noise. Rules already
+present in a file are never removed by the tool (never loosen).
 
 ## D-028 · Renamed to prism-ai-lint; former names keep working during the transition
 Distribution, package, CLI, policy file, cache and pre-commit hook are now `prism-ai-lint` /
@@ -108,12 +121,6 @@ environments and version pinning. PyPI publication removes friction for adoption
 the console script entry point; CI release workflow builds and publishes the wheel
 (requires `PYPI_API_TOKEN` secret). **Reverse:** only if distribution constraints
 or licensing change; until then, both install paths (git clone and pip) coexist.
-
-## D-020 · Generated settings default to the cheapest model and effort
-`--generate` writes `model = "haiku"` and `effortLevel = "low"` into a project's settings when
-absent (`[generate] default_model`, `default_effort`; `""` disables). **Why:** the tool ranks work by
-tokens saved; a project that never chose gets the cheapest session. An existing value always wins
-(`setdefault`), and the policy values are untrusted: only a known alias and a known level are written.
 
 ## D-019 · Critical content changes require human validation
 Guarded sessions block edits to critical content files: repo contracts (`CLAUDE.md`,
