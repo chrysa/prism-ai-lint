@@ -2861,26 +2861,11 @@ _DENY_READ_STACK = {
     "Read(**/__pycache__/**)": ("python",),
     "Read(**/.mypy_cache/**)": ("python",),
     "Read(**/.ruff_cache/**)": ("python",),
-    "Read(**/.terraform/**)": ("terraform",),
     "Read(**/coverage/**)": ("python", "pm"),
     "Read(**/.next/**)": ("pm",),
     "Read(**/dist/**)": ("pm",),
     "Read(**/*.min.js)": ("pm",),
     "Read(**/*.map)": ("pm",),
-}
-# External-action prefixes that only matter when the tool is part of the project; anything else stays.
-_ASK_PREFIX_STACK = {
-    "gh": ("gh",),
-    "kubectl": ("k8s", "helm"),
-    "helm": ("k8s", "helm"),
-    "argocd": ("k8s", "helm"),
-    "terraform": ("terraform",),
-    "tofu": ("terraform",),
-    "bao": ("k8s", "helm", "terraform"),
-    "vault": ("k8s", "helm", "terraform"),
-    "docker": ("docker", "compose"),
-    "npm": ("pm",),
-    "twine": ("python",),
 }
 
 
@@ -2964,11 +2949,8 @@ def generated_permissions(stack: dict, policy: dict) -> dict:
             "Bash(gh run view *)",
         ]
     allow += g["extra_allow"]
-    ask += [
-        f"Bash({p} *)"
-        for p in perms["external_action_prefixes"]
-        if _in_stack(stack, _ASK_PREFIX_STACK.get(p.split()[0], ())) or p.split()[0] not in _ASK_PREFIX_STACK
-    ] + g["extra_ask"]
+    # External-action asks stay unconditional: they override a user-scope allow even when stack detection misses a tool.
+    ask += [f"Bash({p} *)" for p in perms["external_action_prefixes"]] + g["extra_ask"]
     reads = [r for r in GENERATED_DENY_READS if r not in _DENY_READ_STACK or _in_stack(stack, _DENY_READ_STACK[r])]
     deny = list(perms["required_deny"]) + reads + (UNITY_DENY if stack["unity"] else []) + g["extra_deny"]
     if perms["require_rtk"]:

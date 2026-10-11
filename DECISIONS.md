@@ -17,9 +17,10 @@ tokens saved; a project that never chose gets the cheapest session. An existing 
 (`setdefault`), and the policy values are untrusted: only a known alias and a known level are written.
 
 ## D-029 · Generated permissions follow the detected stack
-`--generate` writes deny-reads and external-action `ask` rules only for toolchains the project uses
-(Python caches only for Python, `node_modules`/`.next`/`dist` only with a package manager, cluster and
-Terraform asks only with those tools); `git push` and `rm -rf` always stay. **Why:** the goal is a
+`--generate` writes the token-saving deny-reads only for toolchains the project uses (Python caches
+only for Python, `node_modules`/`.next`/`dist` only with a package manager). External-action `ask` rules and
+`Read(**/.terraform/**)` stay in every project: an `ask` overrides a user-scope allow, and stack detection
+can miss a tool (nested manifests, Enterprise remotes). **Why:** the goal is a
 configuration as close to the project as possible; rules for absent tools are noise. Rules already
 present in a file are never removed by the tool (never loosen). `docker compose up/down` is generated
 as `ask`, not `allow`: starting or stopping containers is an action with effect.

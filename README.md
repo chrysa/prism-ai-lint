@@ -131,7 +131,7 @@ Runs only when agent config changes (`.claude/`, `CLAUDE.md`, `AGENTS.md`, `.mcp
 
 `--generate` also writes `model = "haiku"` and `effortLevel = "low"` into a project's `.claude/settings.json` when it has none (the cheapest session). A value already set is never changed. Set `[generate] default_model` or `default_effort` to `""` to disable, or to another known alias or level to change it.
 
-Generated permissions follow the detected stack: no Node cache rules for a Python project, no cluster or Terraform asks without those tools. `git push` and `rm -rf` stay in `ask` everywhere.
+Generated permissions follow the detected stack: no Node cache rules for a Python project, the external-action `ask` rules stay in every project.
 
 **Generation**: `.claude/settings.json`, hooks, skills (`/check`, `/review-changes`), subagents (`/test-runner`, `/security-auditor`), MCP servers, `.gitignore` secrets block, `CLAUDE.md` / `AGENTS.md` skeletons.
 
