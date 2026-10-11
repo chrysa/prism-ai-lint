@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from prism_ai_lint._reference import (
+    HOOK_FIELD_TYPES,
     HOOK_TYPES,
     KNOWN_HOOK_EVENTS,
     KNOWN_TOOLS,
@@ -143,6 +144,13 @@ class HookChecker:
         if "timeout" in h and not isinstance(h["timeout"], (int, float)):
             rep.add("error", "HOOK_SHAPE", path, f"{event}: timeout must be a number of seconds")
 
+        for fname, accepted in HOOK_FIELD_TYPES.items():
+            if fname not in h:
+                continue
+            ok = h[fname] in accepted if isinstance(accepted, tuple) else isinstance(h[fname], accepted)
+            if not ok:
+                rep.add("warn", "HOOK_FIELD_VALUE", path, f"{event}: {fname}={h[fname]!r} is not a valid value")
+
         if htype == "command":
             cmd = str(h["command"]).strip()
             if event == "PreToolUse" and h.get("async"):
@@ -197,6 +205,7 @@ class HookChecker:
                             path,
                             f"{event}: {script.name} uses exit 1, which does not block",
                         )
+            self._check_fail_open(event, h, base, path, rep)
             if (
                 event in ("PreToolUse", "UserPromptSubmit")
                 and not h.get("timeout")
@@ -232,6 +241,23 @@ class HookChecker:
         elif htype == "mcp_tool" and event in ("SessionStart", "Setup"):
             rep.add("warn", "HOOK_MCP_LAUNCH", path, f"{event}: mcp_tool hook is skipped at launch")
         return h
+
+    def _check_fail_open(self, event: str, h: dict, base: Path, path: Path, rep: Report) -> None:
+        """A gating script (exit 2 / permissionDecision) without onFailure=block lets calls through when it crashes."""
+        if event not in ("PreToolUse", "UserPromptSubmit") or h.get("onFailure") == "block":
+            return
+        args = h.get("args")
+        target = str(args[0]) if isinstance(args, list) and args and "/" not in str(h["command"]) else str(h["command"])
+        script = self.resolve_script(target.split()[0] if target.split() else "", base)
+        if script is None or not script.is_file():
+            return
+        if re.search(r"\bexit\s+2\b|permissionDecision", read_text(script) or ""):
+            rep.add(
+                "info",
+                "HOOK_FAIL_OPEN",
+                path,
+                f"{event}: {script.name} gates calls, but a crash or timeout lets them through (set onFailure: block)",
+            )
 
     def normalize_hook_entries(self, event: str, entries: Any, path: Path, rep: Report) -> list | None:
         def as_group(obj: Any) -> dict | None:

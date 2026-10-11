@@ -4,6 +4,14 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-035 · Hook fields are validated; gating hooks should fail closed; SessionStart prints git state
+New findings `HOOK_FIELD_VALUE` (bad `onFailure`, `asyncRewake`, `continueOnBlock`, `statusMessage`) and
+`HOOK_FAIL_OPEN` (info: a PreToolUse/UserPromptSubmit script that blocks via exit 2 or permissionDecision, without
+`onFailure: "block"`, lets calls through when it crashes or times out). The installed guard hook now sets
+`onFailure: "block"`. `--generate` adds a SessionStart hook (git branch, 15 status lines, 3 commits) so the agent
+skips those tool calls. **Why:** fail closed is the project rule, and the docs say failures do not block by default.
+Report only: the fixer never edits a user's hook. **Reverse:** `[generate] session_context_hook = false`.
+
 ## D-034 · Generated hooks that save tokens and keep memory across compaction
 `--generate` adds a PreToolUse `Read` guard (exit 2 above `read_guard_kb`, default 256 KB, only when the read has no
 offset/limit) and a PreCompact hook that snapshots git state. **Why:** one whole-file read of a big file costs tens of
