@@ -4,12 +4,17 @@ Add a `.py` file to `<repo>/.prism-ai-lint/plugins/`, `<config dir>/plugins/` or
 
 ```python
 def register(api):
-    @api.check("MY_RULE", scope="project")   # or scope="user"
+    @api.check("MY_RULE", scope="project")  # or scope="user"
     def _rule(ctx):
         p = ctx.path("forbidden.txt")
         if p.is_file():
-            ctx.add("warn", "MY_RULE", p, "forbidden.txt must not be committed",
-                    action_en="delete it or add it to .gitignore")
+            ctx.add(
+                "warn",
+                "MY_RULE",
+                p,
+                "forbidden.txt must not be committed",
+                action_en="delete it or add it to .gitignore",
+            )
 ```
 
 `ctx` provides `root`, `path(*parts)`, `read(path)`, `glob(pattern)` and

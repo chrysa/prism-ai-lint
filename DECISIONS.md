@@ -4,6 +4,13 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-034 · Generated hooks that save tokens and keep memory across compaction
+`--generate` adds a PreToolUse `Read` guard (exit 2 above `read_guard_kb`, default 256 KB, only when the read has no
+offset/limit) and a PreCompact hook that snapshots git state. **Why:** one whole-file read of a big file costs tens of
+thousands of tokens; a compaction otherwise forgets uncommitted work. Both are cost aids, not security controls, so
+they fail open on any error. PostToolUse cannot rewrite built-in tool output, so no output-trimming hook is generated.
+**Reverse:** `[generate] read_guard_hook = false`, `compact_hook = false`.
+
 ## D-033 · Reference follows the docs: settings keys, permission modes, effort scale
 Added ~65 documented top-level settings keys, `PERMISSION_MODES` (incl. `auto`, `dontAsk`), and `xhigh`/`max`
 in the effort scale. New findings: `PERM_MODE_UNKNOWN` (typo in `defaultMode`, never rewritten) and

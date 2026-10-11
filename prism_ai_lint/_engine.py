@@ -2762,6 +2762,9 @@ GENERATE_POLICY = {
     "user_settings": True,
     "rtk_config": True,
     "format_hook": True,
+    "read_guard_hook": True,  # PreToolUse Read: refuse a whole-file read of a huge file (cost, not security)
+    "read_guard_kb": 256,  # size above which a Read without offset/limit is refused
+    "compact_hook": True,  # PreCompact: snapshot git state so a compaction loses less
     "skills": ["check", "review-changes"],
     "agents": ["code-reviewer", "test-runner", "security-auditor", "infra-reviewer"],
     "mcp": [
@@ -2839,6 +2842,32 @@ HINTS.update(
     }
 )
 
+READ_GUARD_HOOK = r'''#!/usr/bin/env python3
+"""PreToolUse Read guard: refuse a whole-file read of a very large file, so the agent uses offset/limit or grep.
+Saves tokens; it is not a security control, so any doubt allows the read."""
+import json, os, sys
+
+LIMIT_KB = __LIMIT_KB__
+SKIP = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".ipynb", ".svg")
+
+def main() -> int:
+    try:
+        data = json.load(sys.stdin)
+        args = data.get("tool_input") or {}
+        path = args.get("file_path") or ""
+        if not path or path.lower().endswith(SKIP) or args.get("offset") or args.get("limit"):
+            return 0
+        kb = os.path.getsize(path) // 1024
+    except (ValueError, OSError, AttributeError):
+        return 0
+    if kb > LIMIT_KB:
+        print(f"{path} is {kb} KB: read it with offset and limit, or grep for what you need.", file=sys.stderr)
+        return 2
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
+'''
 FORMAT_HOOK = r'''#!/usr/bin/env python3
 """PostToolUse formatter: formats the edited file with the project's own tools. Never blocks."""
 import json, os, shutil, subprocess, sys
@@ -3246,21 +3275,60 @@ def generate_project(repo: Path, policy: dict, rep: Report) -> None:
             wanted["effortLevel"] = effort
         if g["format_hook"] and (stack["python"] or stack["pm"] or stack["terraform"]):
             gen_new_file(repo / ".claude" / "hooks" / "format.py", FORMAT_HOOK, rep, "formatter hook", 0o755)
-            wanted["hooks"] = {
-                "PostToolUse": [
-                    {
-                        "matcher": "Edit|Write",
-                        "hooks": [
-                            {
-                                "type": "command",
-                                "command": "python3",
-                                "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/format.py"],
-                                "timeout": 30,
-                            }
-                        ],
-                    }
-                ]
-            }
+            wanted.setdefault("hooks", {}).update(
+                {
+                    "PostToolUse": [
+                        {
+                            "matcher": "Edit|Write",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "python3",
+                                    "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/format.py"],
+                                    "timeout": 30,
+                                }
+                            ],
+                        }
+                    ]
+                }
+            )
+        if g.get("read_guard_hook", True):
+            kb = g.get("read_guard_kb", 256)
+            kb = kb if isinstance(kb, int) and not isinstance(kb, bool) and 16 <= kb <= 4096 else 256
+            gen_new_file(
+                repo / ".claude" / "hooks" / "read_guard.py",
+                READ_GUARD_HOOK.replace("__LIMIT_KB__", str(kb)),
+                rep,
+                "read guard hook",
+                0o755,
+            )
+            wanted.setdefault("hooks", {})["PreToolUse"] = [
+                {
+                    "matcher": "Read",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "python3",
+                            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/read_guard.py"],
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
+        if g.get("compact_hook", True):
+            gen_new_file(repo / ".claude" / "hooks" / "pre-compact.sh", PRE_COMPACT_HOOK, rep, "PreCompact hook", 0o755)
+            wanted.setdefault("hooks", {})["PreCompact"] = [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "bash",
+                            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-compact.sh"],
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
         write_json_merged(repo / ".claude" / "settings.json", wanted, rep, "project settings")
     gen_skills(repo, stack, policy, rep)
     gen_agents(repo, stack, policy, rep)
