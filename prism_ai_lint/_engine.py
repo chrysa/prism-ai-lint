@@ -2933,9 +2933,11 @@ def generated_permissions(stack: dict, policy: dict) -> dict:
             "Bash(docker compose ps *)",
             "Bash(docker compose logs *)",
             "Bash(docker compose config *)",
+        ]
+        ask += [
             "Bash(docker compose up *)",
             "Bash(docker compose down *)",
-        ]
+        ]  # start/stop containers: needs a confirmation
     if stack["k8s"] or stack["helm"]:
         allow += [
             "Bash(kubectl get *)",

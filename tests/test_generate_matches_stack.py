@@ -37,3 +37,10 @@ def test_terraform_project_keeps_terraform_asks(linter_module, tmp_path):
     joined = "\n".join(p["ask"])
     assert "terraform apply" in joined and "terraform destroy" in joined
     assert "npm publish" not in joined
+
+
+def test_compose_up_and_down_ask_instead_of_allow(linter_module, tmp_path):
+    p = _perms(linter_module, tmp_path, {"docker-compose.yml": "services: {}\n"})
+    assert "Bash(docker compose up *)" in p["ask"] and "Bash(docker compose down *)" in p["ask"]
+    assert not any("compose up" in r or "compose down" in r for r in p["allow"])
+    assert any("compose logs" in r for r in p["allow"])

@@ -21,7 +21,8 @@ tokens saved; a project that never chose gets the cheapest session. An existing 
 (Python caches only for Python, `node_modules`/`.next`/`dist` only with a package manager, cluster and
 Terraform asks only with those tools); `git push` and `rm -rf` always stay. **Why:** the goal is a
 configuration as close to the project as possible; rules for absent tools are noise. Rules already
-present in a file are never removed by the tool (never loosen).
+present in a file are never removed by the tool (never loosen). `docker compose up/down` is generated
+as `ask`, not `allow`: starting or stopping containers is an action with effect.
 
 ## D-028 · Renamed to prism-ai-lint; former names keep working during the transition
 Distribution, package, CLI, policy file, cache and pre-commit hook are now `prism-ai-lint` /
