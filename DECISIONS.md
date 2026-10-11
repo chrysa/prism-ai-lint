@@ -4,8 +4,22 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-034 · Generated hooks that save tokens and keep memory across compaction
+`--generate` adds a PreToolUse `Read` guard (exit 2 above `read_guard_kb`, default 256 KB, only when the read has no
+offset/limit) and a PreCompact hook that snapshots git state. **Why:** one whole-file read of a big file costs tens of
+thousands of tokens; a compaction otherwise forgets uncommitted work. Both are cost aids, not security controls, so
+they fail open on any error. PostToolUse cannot rewrite built-in tool output, so no output-trimming hook is generated.
+**Reverse:** `[generate] read_guard_hook = false`, `compact_hook = false`.
+
+## D-033 · Reference follows the docs: settings keys, permission modes, effort scale
+Added ~65 documented top-level settings keys, `PERMISSION_MODES` (incl. `auto`, `dontAsk`), and `xhigh`/`max`
+in the effort scale. New findings: `PERM_MODE_UNKNOWN` (typo in `defaultMode`, never rewritten) and
+`SETTINGS_SKIPS_PROMPT` (`skip*PermissionPrompt`, `skipWebFetchPreflight` set true; reported, never changed).
+**Why:** a key unknown to the tool was reported as noise, and `xhigh`/`max` ranked -1 so a high effort floor was
+never flagged. Knowing a key never allows it. **Reverse:** drop the keys from `_reference.py` (snapshot 2026-10).
+
 ## D-032 · Scaffolded AGENTS.md carries a short working-style section
-Four lines (assumptions, smallest change, surgical edits, verifiable check), only when no
+Five lines (assumptions, smallest change, surgical edits, verifiable check, short replies), only when no
 instruction file exists (`[instructions] baseline_guidelines`). **Why:** a short always-loaded
 section is cheap and prevents over-building; a long copy of an external guideline file is not
 (about 600 tokens in every session). Written in our own words: see

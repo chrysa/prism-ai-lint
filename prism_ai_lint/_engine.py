@@ -101,6 +101,7 @@ from prism_ai_lint._reference import (
     MODEL_SNAPSHOT,
     NO_MATCHER_EVENTS,
     PATH_TOOL_REMAP,
+    PERMISSION_MODES,
     PRE_COMPACT_HOOK,
     PRIMARY_PARAMS,
     PROJECT_DEAD_KEYS,
@@ -557,6 +558,14 @@ HINTS: dict[str, tuple[str, str]] = {  # code -> (why/how, reference)
     ),
     "PERM_BYPASS": (
         "Every tool call runs without confirmation, including writes to .git and .claude.",
+        DOCS + "permissions#permission-modes",
+    ),
+    "SETTINGS_SKIPS_PROMPT": (
+        "These keys silence a confirmation Claude Code shows before auto mode, bypass mode or a web fetch.",
+        DOCS + "settings",
+    ),
+    "PERM_MODE_UNKNOWN": (
+        "defaultMode must be one of default, acceptEdits, auto, plan, dontAsk, bypassPermissions.",
         DOCS + "permissions#permission-modes",
     ),
     "PERM_MODE_DEAD": (
@@ -1201,6 +1210,13 @@ def repair_rule(rule: Any, key: str, scope: str, path: Path, rep: Report, policy
     return r
 
 
+_PROMPT_SKIP_KEYS = (
+    "skipDangerousModePermissionPrompt",
+    "skipAutoPermissionPrompt",
+    "skipWebFetchPreflight",
+)
+
+
 def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, scope: str, sandbox_on: bool) -> dict:
     pol = policy["permissions"]
     out = copy.deepcopy(perms)
@@ -1226,6 +1242,8 @@ def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, sco
     if mode in ("bypassPermissions", "auto") and scope == "project":
         rep.add("warn", "PERM_MODE_DEAD", path, f"defaultMode={mode} has no effect here (removed)", True)
         out.pop("defaultMode")
+    elif mode and mode not in PERMISSION_MODES:
+        rep.add("warn", "PERM_MODE_UNKNOWN", path, f"defaultMode={mode!r} is not a documented permission mode")
     elif mode == "bypassPermissions":
         rep.add(
             "error",
@@ -1519,6 +1537,12 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
         )
     if scope == "project" and not local and new.get("enableAllProjectMcpServers") is True:
         rep.add("warn", "SETTINGS_MCP_AUTO", path, "enableAllProjectMcpServers=true in a committed file")
+
+    for key in _PROMPT_SKIP_KEYS:
+        if new.get(key) is True:
+            rep.add(
+                "warn", "SETTINGS_SKIPS_PROMPT", path, f"{key}=true removes a safety prompt (reported, not changed)"
+            )
 
     sandbox_on = isinstance(new.get("sandbox"), dict) and bool(new["sandbox"].get("enabled"))
     if isinstance(new.get("permissions"), dict):
@@ -2738,6 +2762,9 @@ GENERATE_POLICY = {
     "user_settings": True,
     "rtk_config": True,
     "format_hook": True,
+    "read_guard_hook": True,  # PreToolUse Read: refuse a whole-file read of a huge file (cost, not security)
+    "read_guard_kb": 256,  # size above which a Read without offset/limit is refused
+    "compact_hook": True,  # PreCompact: snapshot git state so a compaction loses less
     "skills": ["check", "review-changes"],
     "agents": ["code-reviewer", "test-runner", "security-auditor", "infra-reviewer"],
     "mcp": [
@@ -2815,6 +2842,32 @@ HINTS.update(
     }
 )
 
+READ_GUARD_HOOK = r'''#!/usr/bin/env python3
+"""PreToolUse Read guard: refuse a whole-file read of a very large file, so the agent uses offset/limit or grep.
+Saves tokens; it is not a security control, so any doubt allows the read."""
+import json, os, sys
+
+LIMIT_KB = __LIMIT_KB__
+SKIP = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".ipynb", ".svg")
+
+def main() -> int:
+    try:
+        data = json.load(sys.stdin)
+        args = data.get("tool_input") or {}
+        path = args.get("file_path") or ""
+        if not path or path.lower().endswith(SKIP) or args.get("offset") or args.get("limit"):
+            return 0
+        kb = os.path.getsize(path) // 1024
+    except (ValueError, OSError, AttributeError):
+        return 0
+    if kb > LIMIT_KB:
+        print(f"{path} is {kb} KB: read it with offset and limit, or grep for what you need.", file=sys.stderr)
+        return 2
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
+'''
 FORMAT_HOOK = r'''#!/usr/bin/env python3
 """PostToolUse formatter: formats the edited file with the project's own tools. Never blocks."""
 import json, os, shutil, subprocess, sys
@@ -3222,21 +3275,60 @@ def generate_project(repo: Path, policy: dict, rep: Report) -> None:
             wanted["effortLevel"] = effort
         if g["format_hook"] and (stack["python"] or stack["pm"] or stack["terraform"]):
             gen_new_file(repo / ".claude" / "hooks" / "format.py", FORMAT_HOOK, rep, "formatter hook", 0o755)
-            wanted["hooks"] = {
-                "PostToolUse": [
-                    {
-                        "matcher": "Edit|Write",
-                        "hooks": [
-                            {
-                                "type": "command",
-                                "command": "python3",
-                                "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/format.py"],
-                                "timeout": 30,
-                            }
-                        ],
-                    }
-                ]
-            }
+            wanted.setdefault("hooks", {}).update(
+                {
+                    "PostToolUse": [
+                        {
+                            "matcher": "Edit|Write",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "python3",
+                                    "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/format.py"],
+                                    "timeout": 30,
+                                }
+                            ],
+                        }
+                    ]
+                }
+            )
+        if g.get("read_guard_hook", True):
+            kb = g.get("read_guard_kb", 256)
+            kb = kb if isinstance(kb, int) and not isinstance(kb, bool) and 16 <= kb <= 4096 else 256
+            gen_new_file(
+                repo / ".claude" / "hooks" / "read_guard.py",
+                READ_GUARD_HOOK.replace("__LIMIT_KB__", str(kb)),
+                rep,
+                "read guard hook",
+                0o755,
+            )
+            wanted.setdefault("hooks", {})["PreToolUse"] = [
+                {
+                    "matcher": "Read",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "python3",
+                            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/read_guard.py"],
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
+        if g.get("compact_hook", True):
+            gen_new_file(repo / ".claude" / "hooks" / "pre-compact.sh", PRE_COMPACT_HOOK, rep, "PreCompact hook", 0o755)
+            wanted.setdefault("hooks", {})["PreCompact"] = [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "bash",
+                            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-compact.sh"],
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
         write_json_merged(repo / ".claude" / "settings.json", wanted, rep, "project settings")
     gen_skills(repo, stack, policy, rep)
     gen_agents(repo, stack, policy, rep)
@@ -3348,7 +3440,7 @@ DEFAULT_POLICY["tokens"] = {
     "heavy_models": ["opus", "fable"],  # models flagged when set as the session default
     "subagent_model": "haiku",  # suggested model for mechanical subagents
     "max_effort": "high",  # effortLevel above this is flagged; "" disables the check
-    "effort_levels": ["low", "medium", "high"],  # ordered, low to high
+    "effort_levels": ["low", "medium", "high", "xhigh", "max"],  # ordered, low to high
 }
 # Expected scope per config item type: where each kind of thing should live.
 # A finding fires when an item is found outside the scopes listed for its type.
@@ -3378,6 +3470,7 @@ GUIDELINES_SECTION = """
 - Smallest change that solves the request: no extra features, abstractions or options.
 - Touch only what the task needs; mention unrelated problems instead of fixing them.
 - Define a check first (a test, a command), then loop until it passes.
+- Reply short: result first, bullet points over paragraphs, long reports in a file.
 """
 COMPACT_SECTION = """
 ## Compact instructions
@@ -3662,7 +3755,7 @@ def check_effort_levels(repo: Path, policy: dict, rep: Report) -> None:
     """Flag an effortLevel set above the configured ceiling. A high floor burns
     tokens on every turn; the ceiling is policy.tokens.max_effort ("" disables)."""
     ceiling = policy["tokens"].get("max_effort", "")
-    order = [str(x).lower() for x in policy["tokens"].get("effort_levels", ["low", "medium", "high"])]
+    order = [str(x).lower() for x in policy["tokens"].get("effort_levels", ["low", "medium", "high", "xhigh", "max"])]
     if not ceiling:
         return
     cap = _effort_rank(ceiling, order)
