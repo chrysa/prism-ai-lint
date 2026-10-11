@@ -110,6 +110,7 @@ from prism_ai_lint._reference import (
     SECRET_REDACT_RE,
     SECRETS_GITIGNORE,
     SECRETS_GITIGNORE_HEADER,
+    SESSION_CONTEXT_HOOK,
     SKILL_FIELDS,
     SPECIFIER_TOOLS,
     _is_attribution,
@@ -563,6 +564,14 @@ HINTS: dict[str, tuple[str, str]] = {  # code -> (why/how, reference)
     "SETTINGS_SKIPS_PROMPT": (
         "These keys silence a confirmation Claude Code shows before auto mode, bypass mode or a web fetch.",
         DOCS + "settings",
+    ),
+    "HOOK_FIELD_VALUE": (
+        'onFailure accepts only "block"; asyncRewake and continueOnBlock are booleans; statusMessage is text.',
+        DOCS + "hooks#common-fields",
+    ),
+    "HOOK_FAIL_OPEN": (
+        "By default a hook that crashes or times out does not block the call; onFailure: block makes it fail closed.",
+        DOCS + "hooks#common-fields",
     ),
     "PERM_MODE_UNKNOWN": (
         "defaultMode must be one of default, acceptEdits, auto, plan, dontAsk, bypassPermissions.",
@@ -2764,6 +2773,7 @@ GENERATE_POLICY = {
     "format_hook": True,
     "read_guard_hook": True,  # PreToolUse Read: refuse a whole-file read of a huge file (cost, not security)
     "read_guard_kb": 256,  # size above which a Read without offset/limit is refused
+    "session_context_hook": True,  # SessionStart: print the git state once instead of spending tool calls on it
     "compact_hook": True,  # PreCompact: snapshot git state so a compaction loses less
     "skills": ["check", "review-changes"],
     "agents": ["code-reviewer", "test-runner", "security-auditor", "infra-reviewer"],
@@ -3310,6 +3320,22 @@ def generate_project(repo: Path, policy: dict, rep: Report) -> None:
                             "type": "command",
                             "command": "python3",
                             "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/read_guard.py"],
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
+        if g.get("session_context_hook", True) and (repo / ".git").exists():
+            gen_new_file(
+                repo / ".claude" / "hooks" / "session-context.sh", SESSION_CONTEXT_HOOK, rep, "SessionStart hook", 0o755
+            )
+            wanted.setdefault("hooks", {})["SessionStart"] = [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "bash",
+                            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/session-context.sh"],
                             "timeout": 10,
                         }
                     ],
@@ -6749,6 +6775,7 @@ def session_settings(policy: dict) -> dict:
                             "command": exe,
                             "args": [script, GUARD_MARKER],
                             "timeout": 30,
+                            "onFailure": "block",
                         }
                     ],
                 }

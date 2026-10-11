@@ -352,6 +352,13 @@ HOOK_TYPES = {
     "prompt": ("prompt",),
     "agent": ("prompt",),
 }
+# Optional handler fields (hooks docs, 2026-10): name -> accepted type or values.
+HOOK_FIELD_TYPES = {
+    "onFailure": ("block",),
+    "asyncRewake": bool,
+    "continueOnBlock": bool,
+    "statusMessage": str,
+}
 SHELL_META = re.compile(r"[|&;<>`()]|\$\((?!\s)|\s&&\s|\|\|")
 
 SKILL_FIELDS = {
@@ -507,6 +514,16 @@ SNAP="$SNAP_DIR/snapshot-$(date +%Y%m%d-%H%M%S).md"
     git log --oneline -5 2>/dev/null
   fi
 } > "$SNAP" 2>/dev/null || true
+exit 0
+"""
+
+SESSION_CONTEXT_HOOK = """#!/usr/bin/env bash
+# SessionStart hook: print the git state once so the agent need not spend tool calls on it.
+# Written by prism-ai-lint. Output stays under ~25 lines. Never fails the session.
+git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+echo "branch: $(git branch --show-current 2>/dev/null || echo DETACHED)"
+git status --porcelain 2>/dev/null | head -15
+git log --oneline -3 2>/dev/null
 exit 0
 """
 

@@ -136,7 +136,7 @@ Generated permissions follow the detected stack: no Node cache rules for a Pytho
 
 A scaffolded `AGENTS.md` (only when the project has no instruction file) ends with a five-line "Working style" section; `[instructions] baseline_guidelines = false` turns it off.
 
-**Generation**: `.claude/settings.json`, hooks (formatter after edits, a `Read` size guard that refuses whole-file reads above `read_guard_kb`, a `PreCompact` git snapshot; each can be turned off in `[generate]`), skills (`/check`, `/review-changes`), subagents (`/test-runner`, `/security-auditor`), MCP servers, `.gitignore` secrets block, `CLAUDE.md` / `AGENTS.md` skeletons.
+**Generation**: `.claude/settings.json`, hooks (formatter after edits, a `Read` size guard that refuses whole-file reads above `read_guard_kb`, a `PreCompact` git snapshot, a `SessionStart` git summary; each can be turned off in `[generate]`), skills (`/check`, `/review-changes`), subagents (`/test-runner`, `/security-auditor`), MCP servers, `.gitignore` secrets block, `CLAUDE.md` / `AGENTS.md` skeletons.
 
 **Optimization**: duplicates, families, long descriptions, token estimate, restructuring proposals (pack → plugin, skill → plugin, procedure → skill).
 
