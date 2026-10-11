@@ -113,6 +113,13 @@ as `CLAUDE.md`, `AGENTS.md`, and `.claude/rules/*.md`; guard blocks writes and
 prompts for approval. **Reverse:** only if configuration becomes auto-generated
 from a trusted schema with validation, making human review redundant.
 
+## D-032 · Scaffolded AGENTS.md carries a short working-style section
+Four lines (assumptions, smallest change, surgical edits, verifiable check), only when no
+instruction file exists (`[instructions] baseline_guidelines`). **Why:** a short always-loaded
+section is cheap and prevents over-building; a long copy of an external guideline file is not
+(about 600 tokens in every session). Written in our own words: see
+[docs/EXTERNAL_REFERENCES.md](docs/EXTERNAL_REFERENCES.md).
+
 ## D-020 · PyPI publication for wider adoption
 prism-ai-lint is published to PyPI (`pip install prism-ai-lint`) alongside git-clone installs.
 The wheel includes the full engine package and CLI entry point, built from
