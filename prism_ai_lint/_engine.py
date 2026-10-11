@@ -220,6 +220,7 @@ DEFAULT_POLICY: dict[str, Any] = {
             ".windsurfrules",
             "GEMINI.md",
         ],
+        "baseline_guidelines": True,  # a scaffolded AGENTS.md carries a short working-style section
         "claude_md_import": True,  # keep CLAUDE.md = "@AGENTS.md" for CLIs < 2.1.277 / Bedrock
         "min_duplicate_line_len": 30,
         # Style levers for always-loaded instructions: an agent parses terse,
@@ -3370,6 +3371,14 @@ GENERATED_DENY_READS.extend(
     ]
 )
 AGENT_TEMPLATES["test-runner"] = AGENT_TEMPLATES["test-runner"] + ("haiku",)
+GUIDELINES_SECTION = """
+## Working style
+
+- State assumptions; if a request has several readings, list them and ask before building.
+- Smallest change that solves the request: no extra features, abstractions or options.
+- Touch only what the task needs; mention unrelated problems instead of fixing them.
+- Define a check first (a test, a command), then loop until it passes.
+"""
 COMPACT_SECTION = """
 ## Compact instructions
 
@@ -5753,7 +5762,8 @@ def scaffold_project(repo: Path, policy: dict, rep: Report) -> None:
             True,
         )
         rep.new_files[agents] = (
-            AGENTS_SKELETON.format(name=repo.name, commands=detect_commands(repo)),
+            AGENTS_SKELETON.format(name=repo.name, commands=detect_commands(repo))
+            + (GUIDELINES_SECTION if policy["instructions"].get("baseline_guidelines", True) else ""),
             0o644,
         )
         if policy["instructions"]["claude_md_import"]:
