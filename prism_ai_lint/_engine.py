@@ -4231,6 +4231,18 @@ def _movable_section(lines: list[str]) -> bool:
     return True
 
 
+_RULE_WORDS = ("negotiable", "must", "never", "always", "rule", "convention", "security", "policy", "standard")
+
+
+def _is_rule_title(title: str, words: object) -> bool:
+    """A section title that names a rule stays in the instruction file. The word list comes from an
+    untrusted policy: anything but a list of non-empty strings falls back to the built-in words."""
+    if not isinstance(words, list) or not any(isinstance(w, str) and w.strip() for w in words):
+        words = list(_RULE_WORDS)
+    low = title.lower()
+    return any(w.strip().lower() in low for w in words if isinstance(w, str) and w.strip())
+
+
 def _git_ignored(path: Path) -> bool:
     """True when git ignores the path: a skill written there would never be committed."""
     cwd = path.parent
@@ -4383,9 +4395,7 @@ def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> lis
                 len(lines) >= policy["restructure"]["procedure_min_lines"]
                 and steps >= 6
                 and _movable_section(lines)
-                and not any(
-                    str(w).lower() in title.lower() for w in policy["restructure"].get("keep_in_instructions", [])
-                )
+                and not _is_rule_title(title, policy["restructure"].get("keep_in_instructions"))
                 and not _git_ignored(_procedure_skill_path(c, title))
             ):
                 props.append(

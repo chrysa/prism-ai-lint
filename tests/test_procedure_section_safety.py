@@ -53,3 +53,9 @@ def test_rules_sections_stay_in_the_instruction_file(linter_module, tmp_path):
 def test_a_procedure_title_is_still_proposed(linter_module, tmp_path):
     repo = _repo(tmp_path, f"# Project\n\n## Deploy to staging\n\n{STEPS}\n")
     assert [p["section"] for p in _proposals(linter_module, repo)] == ["Deploy to staging"]
+
+
+def test_hostile_keep_list_falls_back_to_the_built_in_words(linter_module):
+    for bad in (None, 5, True, "x", [], [""], [None, 3]):
+        assert linter_module._is_rule_title("Security rules", bad) is True, bad
+        assert linter_module._is_rule_title("Deploy to staging", bad) is False, bad
