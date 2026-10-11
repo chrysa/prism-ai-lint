@@ -134,7 +134,7 @@ Runs only when agent config changes (`.claude/`, `CLAUDE.md`, `AGENTS.md`, `.mcp
 Generated permissions follow the detected stack: no Node cache rules for a Python project, the external-action `ask` rules stay in every project.
 ||||||| parent of bbde589 (feat: scaffold a short working-style section in a new AGENTS.md and document the external references reviewed)
 
-A scaffolded `AGENTS.md` (only when the project has no instruction file) ends with a four-line "Working style" section; `[instructions] baseline_guidelines = false` turns it off.
+A scaffolded `AGENTS.md` (only when the project has no instruction file) ends with a five-line "Working style" section; `[instructions] baseline_guidelines = false` turns it off.
 
 **Generation**: `.claude/settings.json`, hooks, skills (`/check`, `/review-changes`), subagents (`/test-runner`, `/security-auditor`), MCP servers, `.gitignore` secrets block, `CLAUDE.md` / `AGENTS.md` skeletons.
 

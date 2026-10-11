@@ -114,7 +114,7 @@ preferred_model = "sonnet"
 heavy_models = ["opus", "fable"]
 subagent_model = "haiku"
 max_effort = "high"
-effort_levels = ["low", "medium", "high"]
+effort_levels = ["low", "medium", "high", "xhigh", "max"]
 
 [scopes]
 skill = ["project", "user"]

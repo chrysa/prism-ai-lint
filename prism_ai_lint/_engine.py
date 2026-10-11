@@ -101,6 +101,7 @@ from prism_ai_lint._reference import (
     MODEL_SNAPSHOT,
     NO_MATCHER_EVENTS,
     PATH_TOOL_REMAP,
+    PERMISSION_MODES,
     PRE_COMPACT_HOOK,
     PRIMARY_PARAMS,
     PROJECT_DEAD_KEYS,
@@ -557,6 +558,14 @@ HINTS: dict[str, tuple[str, str]] = {  # code -> (why/how, reference)
     ),
     "PERM_BYPASS": (
         "Every tool call runs without confirmation, including writes to .git and .claude.",
+        DOCS + "permissions#permission-modes",
+    ),
+    "SETTINGS_SKIPS_PROMPT": (
+        "These keys silence a confirmation Claude Code shows before auto mode, bypass mode or a web fetch.",
+        DOCS + "settings",
+    ),
+    "PERM_MODE_UNKNOWN": (
+        "defaultMode must be one of default, acceptEdits, auto, plan, dontAsk, bypassPermissions.",
         DOCS + "permissions#permission-modes",
     ),
     "PERM_MODE_DEAD": (
@@ -1201,6 +1210,13 @@ def repair_rule(rule: Any, key: str, scope: str, path: Path, rep: Report, policy
     return r
 
 
+_PROMPT_SKIP_KEYS = (
+    "skipDangerousModePermissionPrompt",
+    "skipAutoPermissionPrompt",
+    "skipWebFetchPreflight",
+)
+
+
 def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, scope: str, sandbox_on: bool) -> dict:
     pol = policy["permissions"]
     out = copy.deepcopy(perms)
@@ -1226,6 +1242,8 @@ def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, sco
     if mode in ("bypassPermissions", "auto") and scope == "project":
         rep.add("warn", "PERM_MODE_DEAD", path, f"defaultMode={mode} has no effect here (removed)", True)
         out.pop("defaultMode")
+    elif mode and mode not in PERMISSION_MODES:
+        rep.add("warn", "PERM_MODE_UNKNOWN", path, f"defaultMode={mode!r} is not a documented permission mode")
     elif mode == "bypassPermissions":
         rep.add(
             "error",
@@ -1519,6 +1537,12 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
         )
     if scope == "project" and not local and new.get("enableAllProjectMcpServers") is True:
         rep.add("warn", "SETTINGS_MCP_AUTO", path, "enableAllProjectMcpServers=true in a committed file")
+
+    for key in _PROMPT_SKIP_KEYS:
+        if new.get(key) is True:
+            rep.add(
+                "warn", "SETTINGS_SKIPS_PROMPT", path, f"{key}=true removes a safety prompt (reported, not changed)"
+            )
 
     sandbox_on = isinstance(new.get("sandbox"), dict) and bool(new["sandbox"].get("enabled"))
     if isinstance(new.get("permissions"), dict):
@@ -3348,7 +3372,7 @@ DEFAULT_POLICY["tokens"] = {
     "heavy_models": ["opus", "fable"],  # models flagged when set as the session default
     "subagent_model": "haiku",  # suggested model for mechanical subagents
     "max_effort": "high",  # effortLevel above this is flagged; "" disables the check
-    "effort_levels": ["low", "medium", "high"],  # ordered, low to high
+    "effort_levels": ["low", "medium", "high", "xhigh", "max"],  # ordered, low to high
 }
 # Expected scope per config item type: where each kind of thing should live.
 # A finding fires when an item is found outside the scopes listed for its type.
@@ -3378,6 +3402,7 @@ GUIDELINES_SECTION = """
 - Smallest change that solves the request: no extra features, abstractions or options.
 - Touch only what the task needs; mention unrelated problems instead of fixing them.
 - Define a check first (a test, a command), then loop until it passes.
+- Reply short: result first, bullet points over paragraphs, long reports in a file.
 """
 COMPACT_SECTION = """
 ## Compact instructions
@@ -3662,7 +3687,7 @@ def check_effort_levels(repo: Path, policy: dict, rep: Report) -> None:
     """Flag an effortLevel set above the configured ceiling. A high floor burns
     tokens on every turn; the ceiling is policy.tokens.max_effort ("" disables)."""
     ceiling = policy["tokens"].get("max_effort", "")
-    order = [str(x).lower() for x in policy["tokens"].get("effort_levels", ["low", "medium", "high"])]
+    order = [str(x).lower() for x in policy["tokens"].get("effort_levels", ["low", "medium", "high", "xhigh", "max"])]
     if not ceiling:
         return
     cap = _effort_rank(ceiling, order)
