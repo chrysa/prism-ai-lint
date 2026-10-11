@@ -4140,6 +4140,24 @@ DEFAULT_POLICY["restructure"] = {
     "min_skill_family": 3,  # skills sharing a name prefix
     "skill_keep_lines": 150,  # lines kept in SKILL.md when splitting a long skill
     "procedure_min_lines": 15,  # CLAUDE.md section long enough to become a skill
+    # A section whose title says it is a rule, not a procedure, stays always-loaded.
+    "keep_in_instructions": [
+        "negotiable",
+        "must",
+        "never",
+        "always",
+        "rule",
+        "convention",
+        "security",
+        "policy",
+        "standard",
+        "guardrail",
+        "constraint",
+        "boundar",
+        "principle",
+        "doctrine",
+        "critical",
+    ],
 }
 HINTS.update(
     {
@@ -4365,6 +4383,9 @@ def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> lis
                 len(lines) >= policy["restructure"]["procedure_min_lines"]
                 and steps >= 6
                 and _movable_section(lines)
+                and not any(
+                    str(w).lower() in title.lower() for w in policy["restructure"].get("keep_in_instructions", [])
+                )
                 and not _git_ignored(_procedure_skill_path(c, title))
             ):
                 props.append(

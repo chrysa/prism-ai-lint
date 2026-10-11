@@ -40,3 +40,16 @@ def test_ignored_skill_target_is_not_proposed(linter_module, tmp_path):
     repo = _repo(tmp_path, f"# Project\n\n## Release\n\n{STEPS}\n")
     (repo / ".gitignore").write_text("release\n", encoding="utf-8")
     assert _proposals(linter_module, repo) == []
+
+
+def test_rules_sections_stay_in_the_instruction_file(linter_module, tmp_path):
+    for title in ("Non-negotiable conventions", "Security rules", "Never do this"):
+        repo = tmp_path / title.split()[0]
+        repo.mkdir()
+        _repo(repo, f"# Project\n\n## {title}\n\n{STEPS}\n")
+        assert _proposals(linter_module, repo) == [], title
+
+
+def test_a_procedure_title_is_still_proposed(linter_module, tmp_path):
+    repo = _repo(tmp_path, f"# Project\n\n## Deploy to staging\n\n{STEPS}\n")
+    assert [p["section"] for p in _proposals(linter_module, repo)] == ["Deploy to staging"]
