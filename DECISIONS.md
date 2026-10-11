@@ -4,6 +4,12 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-031 · Rule sections never become on-demand skills
+`procedure-to-skill` skips a CLAUDE.md section whose title contains a word from
+`[restructure] keep_in_instructions` (non-negotiable, must, never, rules, conventions, security...). **Why:** a
+"Non-negotiable conventions" section moved to a skill is loaded only when the model decides to read it;
+rules must stay always-loaded, procedures may not. A plain word list, not a regex: the policy is untrusted.
+
 ## D-028 · Renamed to prism-ai-lint; former names keep working during the transition
 Distribution, package, CLI, policy file, cache and pre-commit hook are now `prism-ai-lint` /
 `prism_ai_lint` / `.prism-ai-lint.toml` / `~/.cache/prism-ai-lint/`. The version is computed
