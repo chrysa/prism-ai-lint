@@ -101,6 +101,7 @@ from prism_ai_lint._reference import (
     MODEL_SNAPSHOT,
     NO_MATCHER_EVENTS,
     PATH_TOOL_REMAP,
+    PERMISSION_MODES,
     PRE_COMPACT_HOOK,
     PRIMARY_PARAMS,
     PROJECT_DEAD_KEYS,
@@ -109,6 +110,7 @@ from prism_ai_lint._reference import (
     SECRET_REDACT_RE,
     SECRETS_GITIGNORE,
     SECRETS_GITIGNORE_HEADER,
+    SESSION_CONTEXT_HOOK,
     SKILL_FIELDS,
     SPECIFIER_TOOLS,
     _is_attribution,
@@ -162,7 +164,7 @@ from prism_ai_lint.tui_services import TuiServices
 
 
 def _detect_version() -> str:
-    """The version is computed, never typed (shared-standards CI-045): prefer the
+    """The version is computed, never typed: prefer the
     installed package metadata, else the git tag, else a dev placeholder."""
     try:
         from importlib.metadata import PackageNotFoundError, version
@@ -220,6 +222,7 @@ DEFAULT_POLICY: dict[str, Any] = {
             ".windsurfrules",
             "GEMINI.md",
         ],
+        "baseline_guidelines": True,  # a scaffolded AGENTS.md carries a short working-style section
         "claude_md_import": True,  # keep CLAUDE.md = "@AGENTS.md" for CLIs < 2.1.277 / Bedrock
         "min_duplicate_line_len": 30,
         # Style levers for always-loaded instructions: an agent parses terse,
@@ -556,6 +559,22 @@ HINTS: dict[str, tuple[str, str]] = {  # code -> (why/how, reference)
     ),
     "PERM_BYPASS": (
         "Every tool call runs without confirmation, including writes to .git and .claude.",
+        DOCS + "permissions#permission-modes",
+    ),
+    "SETTINGS_SKIPS_PROMPT": (
+        "These keys silence a confirmation Claude Code shows before auto mode, bypass mode or a web fetch.",
+        DOCS + "settings",
+    ),
+    "HOOK_FIELD_VALUE": (
+        'onFailure accepts only "block"; asyncRewake and continueOnBlock are booleans; statusMessage is text.',
+        DOCS + "hooks#common-fields",
+    ),
+    "HOOK_FAIL_OPEN": (
+        "By default a hook that crashes or times out does not block the call; onFailure: block makes it fail closed.",
+        DOCS + "hooks#common-fields",
+    ),
+    "PERM_MODE_UNKNOWN": (
+        "defaultMode must be one of default, acceptEdits, auto, plan, dontAsk, bypassPermissions.",
         DOCS + "permissions#permission-modes",
     ),
     "PERM_MODE_DEAD": (
@@ -1200,6 +1219,13 @@ def repair_rule(rule: Any, key: str, scope: str, path: Path, rep: Report, policy
     return r
 
 
+_PROMPT_SKIP_KEYS = (
+    "skipDangerousModePermissionPrompt",
+    "skipAutoPermissionPrompt",
+    "skipWebFetchPreflight",
+)
+
+
 def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, scope: str, sandbox_on: bool) -> dict:
     pol = policy["permissions"]
     out = copy.deepcopy(perms)
@@ -1225,6 +1251,8 @@ def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, sco
     if mode in ("bypassPermissions", "auto") and scope == "project":
         rep.add("warn", "PERM_MODE_DEAD", path, f"defaultMode={mode} has no effect here (removed)", True)
         out.pop("defaultMode")
+    elif mode and mode not in PERMISSION_MODES:
+        rep.add("warn", "PERM_MODE_UNKNOWN", path, f"defaultMode={mode!r} is not a documented permission mode")
     elif mode == "bypassPermissions":
         rep.add(
             "error",
@@ -1518,6 +1546,12 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
         )
     if scope == "project" and not local and new.get("enableAllProjectMcpServers") is True:
         rep.add("warn", "SETTINGS_MCP_AUTO", path, "enableAllProjectMcpServers=true in a committed file")
+
+    for key in _PROMPT_SKIP_KEYS:
+        if new.get(key) is True:
+            rep.add(
+                "warn", "SETTINGS_SKIPS_PROMPT", path, f"{key}=true removes a safety prompt (reported, not changed)"
+            )
 
     sandbox_on = isinstance(new.get("sandbox"), dict) and bool(new["sandbox"].get("enabled"))
     if isinstance(new.get("permissions"), dict):
@@ -2730,10 +2764,17 @@ def rtk_report() -> str:
 # --------------------------------------------------------------------------- #
 
 GENERATE_POLICY = {
+    "skip_user_duplicates": True,  # do not copy a skill or agent into a project when the user scope already has that name
     "project_settings": True,
+    "default_model": "haiku",  # model written into generated project settings when none is set ("" disables)
+    "default_effort": "low",  # effortLevel written into generated project settings when none is set ("" disables)
     "user_settings": True,
     "rtk_config": True,
     "format_hook": True,
+    "read_guard_hook": True,  # PreToolUse Read: refuse a whole-file read of a huge file (cost, not security)
+    "read_guard_kb": 256,  # size above which a Read without offset/limit is refused
+    "session_context_hook": True,  # SessionStart: print the git state once instead of spending tool calls on it
+    "compact_hook": True,  # PreCompact: snapshot git state so a compaction loses less
     "skills": ["check", "review-changes"],
     "agents": ["code-reviewer", "test-runner", "security-auditor", "infra-reviewer"],
     "mcp": [
@@ -2800,6 +2841,10 @@ UNITY_DENY = [
 HINTS.update(
     {
         "GENERATE": ("Generated from the detected stack; review the diff before --fix.", ""),
+        "GENERATE_SKIPPED": (
+            "A copy of a user-scope skill or agent in a project is listed twice per session and drifts; it is skipped by default.",
+            DOCS + "skills",
+        ),
         "GENERATE_USER_MCP": (
             "User-scope MCP servers live in ~/.claude.json, written by the CLI only.",
             DOCS + "mcp",
@@ -2807,6 +2852,32 @@ HINTS.update(
     }
 )
 
+READ_GUARD_HOOK = r'''#!/usr/bin/env python3
+"""PreToolUse Read guard: refuse a whole-file read of a very large file, so the agent uses offset/limit or grep.
+Saves tokens; it is not a security control, so any doubt allows the read."""
+import json, os, sys
+
+LIMIT_KB = __LIMIT_KB__
+SKIP = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".pdf", ".ipynb", ".svg")
+
+def main() -> int:
+    try:
+        data = json.load(sys.stdin)
+        args = data.get("tool_input") or {}
+        path = args.get("file_path") or ""
+        if not path or path.lower().endswith(SKIP) or args.get("offset") or args.get("limit"):
+            return 0
+        kb = os.path.getsize(path) // 1024
+    except (ValueError, OSError, AttributeError):
+        return 0
+    if kb > LIMIT_KB:
+        print(f"{path} is {kb} KB: read it with offset and limit, or grep for what you need.", file=sys.stderr)
+        return 2
+    return 0
+
+if __name__ == "__main__":
+    sys.exit(main())
+'''
 FORMAT_HOOK = r'''#!/usr/bin/env python3
 """PostToolUse formatter: formats the edited file with the project's own tools. Never blocks."""
 import json, os, shutil, subprocess, sys
@@ -2845,6 +2916,25 @@ if __name__ == "__main__":
 
 def detect_stack(repo: Path) -> dict:
     return ProjectProfiler(repo).detect_stack()
+
+
+# Generated deny-reads that only make sense for one toolchain: (rule, stack keys, any of which enables it).
+_DENY_READ_STACK = {
+    "Read(**/node_modules/**)": ("pm",),
+    "Read(**/.venv/**)": ("python",),
+    "Read(**/__pycache__/**)": ("python",),
+    "Read(**/.mypy_cache/**)": ("python",),
+    "Read(**/.ruff_cache/**)": ("python",),
+    "Read(**/coverage/**)": ("python", "pm"),
+    "Read(**/.next/**)": ("pm",),
+    "Read(**/dist/**)": ("pm",),
+    "Read(**/*.min.js)": ("pm",),
+    "Read(**/*.map)": ("pm",),
+}
+
+
+def _in_stack(stack: dict, keys: tuple[str, ...]) -> bool:
+    return any(stack.get(k) for k in keys)
 
 
 def generated_permissions(stack: dict, policy: dict) -> dict:
@@ -2892,9 +2982,11 @@ def generated_permissions(stack: dict, policy: dict) -> dict:
             "Bash(docker compose ps *)",
             "Bash(docker compose logs *)",
             "Bash(docker compose config *)",
+        ]
+        ask += [
             "Bash(docker compose up *)",
             "Bash(docker compose down *)",
-        ]
+        ]  # start/stop containers: needs a confirmation
     if stack["k8s"] or stack["helm"]:
         allow += [
             "Bash(kubectl get *)",
@@ -2921,10 +3013,10 @@ def generated_permissions(stack: dict, policy: dict) -> dict:
             "Bash(gh run view *)",
         ]
     allow += g["extra_allow"]
+    # External-action asks stay unconditional: they override a user-scope allow even when stack detection misses a tool.
     ask += [f"Bash({p} *)" for p in perms["external_action_prefixes"]] + g["extra_ask"]
-    deny = (
-        list(perms["required_deny"]) + GENERATED_DENY_READS + (UNITY_DENY if stack["unity"] else []) + g["extra_deny"]
-    )
+    reads = [r for r in GENERATED_DENY_READS if r not in _DENY_READ_STACK or _in_stack(stack, _DENY_READ_STACK[r])]
+    deny = list(perms["required_deny"]) + reads + (UNITY_DENY if stack["unity"] else []) + g["extra_deny"]
     if perms["require_rtk"]:
         allow = [rtk_wrap(r, perms["rtk_exempt"]) if (c := command_of(r)) and rtk_rewrites(c) else r for r in allow]
         if perms.get("rtk_twin_deny", True):
@@ -3016,6 +3108,32 @@ def check_commands_for(stack: dict) -> list[str]:
     return cmds
 
 
+def user_scope_has(path: Path) -> bool:
+    """True when the user scope already holds the skill or agent that `path` (a project file) would copy."""
+    if path.name == "SKILL.md" and path.parent.parent.name == "skills":
+        return (config_dir() / "skills" / path.parent.name / "SKILL.md").is_file()
+    if path.parent.name == "agents":
+        agents = config_dir() / "agents"
+        return agents.is_dir() and any(agents.glob(f"**/{path.name}"))
+    return False
+
+
+def gen_unless_user_scope(policy: dict, path: Path, content: str, rep: Report, what: str, mode: int = 0o644) -> None:
+    """gen_new_file, except that an item the user scope already has is not copied into the project.
+
+    A copy is listed in every session of the project on top of the user one and drifts apart from it.
+    `[generate] skip_user_duplicates = false` restores the copy."""
+    if policy["generate"].get("skip_user_duplicates", True) and not path.exists() and user_scope_has(path):
+        rep.add(
+            "info",
+            "GENERATE_SKIPPED",
+            path,
+            f"{what} not copied: the user scope already has one (set [generate] skip_user_duplicates = false to copy it)",
+        )
+        return
+    gen_new_file(path, content, rep, what, mode)
+
+
 def gen_skills(repo: Path, stack: dict, policy: dict, rep: Report) -> None:
     root = repo / ".claude" / "skills"
     wanted = policy["generate"]["skills"]
@@ -3023,7 +3141,8 @@ def gen_skills(repo: Path, stack: dict, policy: dict, rep: Report) -> None:
     if "check" in wanted and cmds:
         tools = " ".join(f"Bash({c} *)" if " " in c else f"Bash({c})" for c in cmds)
         body = "\n".join(f"{i}. `{c}`" for i, c in enumerate(cmds, 1))
-        gen_new_file(
+        gen_unless_user_scope(
+            policy,
             root / "check" / "SKILL.md",
             f"""---
 name: check
@@ -3042,7 +3161,8 @@ If everything passes, say so in one line.
             "skill /check",
         )
     if "review-changes" in wanted:
-        gen_new_file(
+        gen_unless_user_scope(
+            policy,
             root / "review-changes" / "SKILL.md",
             """---
 name: review-changes
@@ -3114,7 +3234,8 @@ def gen_agents(repo: Path, stack: dict, policy: dict, rep: Report) -> None:
             continue
         tools, desc, body, *model = AGENT_TEMPLATES[name]
         model_line = f"model: {model[0]}\n" if model else ""
-        gen_new_file(
+        gen_unless_user_scope(
+            policy,
             repo / ".claude" / "agents" / f"{name}.md",
             f"---\nname: {name}\ndescription: {desc}\ntools: {tools}\n{model_line}---\n\n{body}\n",
             rep,
@@ -3155,23 +3276,85 @@ def generate_project(repo: Path, policy: dict, rep: Report) -> None:
             "attribution": {"commit": "", "pr": ""},
             "permissions": generated_permissions(stack, policy),
         }
+        # The project file comes from an untrusted policy: only a known model alias and a known effort level may reach settings.
+        model = safe_model(g.get("default_model", ""), "") if g.get("default_model") else ""
+        effort = str(g.get("default_effort", "")).strip().lower()
+        if model:
+            wanted["model"] = model
+        if effort in ("low", "medium", "high"):
+            wanted["effortLevel"] = effort
         if g["format_hook"] and (stack["python"] or stack["pm"] or stack["terraform"]):
             gen_new_file(repo / ".claude" / "hooks" / "format.py", FORMAT_HOOK, rep, "formatter hook", 0o755)
-            wanted["hooks"] = {
-                "PostToolUse": [
-                    {
-                        "matcher": "Edit|Write",
-                        "hooks": [
-                            {
-                                "type": "command",
-                                "command": "python3",
-                                "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/format.py"],
-                                "timeout": 30,
-                            }
-                        ],
-                    }
-                ]
-            }
+            wanted.setdefault("hooks", {}).update(
+                {
+                    "PostToolUse": [
+                        {
+                            "matcher": "Edit|Write",
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "python3",
+                                    "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/format.py"],
+                                    "timeout": 30,
+                                }
+                            ],
+                        }
+                    ]
+                }
+            )
+        if g.get("read_guard_hook", True):
+            kb = g.get("read_guard_kb", 256)
+            kb = kb if isinstance(kb, int) and not isinstance(kb, bool) and 16 <= kb <= 4096 else 256
+            gen_new_file(
+                repo / ".claude" / "hooks" / "read_guard.py",
+                READ_GUARD_HOOK.replace("__LIMIT_KB__", str(kb)),
+                rep,
+                "read guard hook",
+                0o755,
+            )
+            wanted.setdefault("hooks", {})["PreToolUse"] = [
+                {
+                    "matcher": "Read",
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "python3",
+                            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/read_guard.py"],
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
+        if g.get("session_context_hook", True) and (repo / ".git").exists():
+            gen_new_file(
+                repo / ".claude" / "hooks" / "session-context.sh", SESSION_CONTEXT_HOOK, rep, "SessionStart hook", 0o755
+            )
+            wanted.setdefault("hooks", {})["SessionStart"] = [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "bash",
+                            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/session-context.sh"],
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
+        if g.get("compact_hook", True):
+            gen_new_file(repo / ".claude" / "hooks" / "pre-compact.sh", PRE_COMPACT_HOOK, rep, "PreCompact hook", 0o755)
+            wanted.setdefault("hooks", {})["PreCompact"] = [
+                {
+                    "hooks": [
+                        {
+                            "type": "command",
+                            "command": "bash",
+                            "args": ["${CLAUDE_PROJECT_DIR}/.claude/hooks/pre-compact.sh"],
+                            "timeout": 10,
+                        }
+                    ],
+                }
+            ]
         write_json_merged(repo / ".claude" / "settings.json", wanted, rep, "project settings")
     gen_skills(repo, stack, policy, rep)
     gen_agents(repo, stack, policy, rep)
@@ -3283,7 +3466,7 @@ DEFAULT_POLICY["tokens"] = {
     "heavy_models": ["opus", "fable"],  # models flagged when set as the session default
     "subagent_model": "haiku",  # suggested model for mechanical subagents
     "max_effort": "high",  # effortLevel above this is flagged; "" disables the check
-    "effort_levels": ["low", "medium", "high"],  # ordered, low to high
+    "effort_levels": ["low", "medium", "high", "xhigh", "max"],  # ordered, low to high
 }
 # Expected scope per config item type: where each kind of thing should live.
 # A finding fires when an item is found outside the scopes listed for its type.
@@ -3306,6 +3489,15 @@ GENERATED_DENY_READS.extend(
     ]
 )
 AGENT_TEMPLATES["test-runner"] = AGENT_TEMPLATES["test-runner"] + ("haiku",)
+GUIDELINES_SECTION = """
+## Working style
+
+- State assumptions; if a request has several readings, list them and ask before building.
+- Smallest change that solves the request: no extra features, abstractions or options.
+- Touch only what the task needs; mention unrelated problems instead of fixing them.
+- Define a check first (a test, a command), then loop until it passes.
+- Reply short: result first, bullet points over paragraphs, long reports in a file.
+"""
 COMPACT_SECTION = """
 ## Compact instructions
 
@@ -3589,7 +3781,7 @@ def check_effort_levels(repo: Path, policy: dict, rep: Report) -> None:
     """Flag an effortLevel set above the configured ceiling. A high floor burns
     tokens on every turn; the ceiling is policy.tokens.max_effort ("" disables)."""
     ceiling = policy["tokens"].get("max_effort", "")
-    order = [str(x).lower() for x in policy["tokens"].get("effort_levels", ["low", "medium", "high"])]
+    order = [str(x).lower() for x in policy["tokens"].get("effort_levels", ["low", "medium", "high", "xhigh", "max"])]
     if not ceiling:
         return
     cap = _effort_rank(ceiling, order)
@@ -4097,6 +4289,24 @@ DEFAULT_POLICY["restructure"] = {
     "min_skill_family": 3,  # skills sharing a name prefix
     "skill_keep_lines": 150,  # lines kept in SKILL.md when splitting a long skill
     "procedure_min_lines": 15,  # CLAUDE.md section long enough to become a skill
+    # A section whose title says it is a rule, not a procedure, stays always-loaded.
+    "keep_in_instructions": [
+        "negotiable",
+        "must",
+        "never",
+        "always",
+        "rule",
+        "convention",
+        "security",
+        "policy",
+        "standard",
+        "guardrail",
+        "constraint",
+        "boundar",
+        "principle",
+        "doctrine",
+        "critical",
+    ],
 }
 HINTS.update(
     {
@@ -4152,6 +4362,51 @@ def _sections(text: str) -> list[tuple[str, list[str]]]:
         else:
             out[-1][1].append(line)
     return out
+
+
+MANAGED_BLOCK_RE = re.compile(r"DO NOT EDIT|managed by|<!--\s*[\w.:-]+:(start|begin)\b", re.I)
+
+
+def _movable_section(lines: list[str]) -> bool:
+    """A section is movable only if it is a plain H2 body: no managed block, no H1 of another document."""
+    fence = False
+    for line in lines[1:]:
+        if re.match(r"^\s*(```|~~~)", line):
+            fence = not fence
+        if fence:
+            continue
+        if MANAGED_BLOCK_RE.search(line) or re.match(r"^#\s+\S", line):
+            return False
+    return True
+
+
+_RULE_WORDS = ("negotiable", "must", "never", "always", "rule", "convention", "security", "policy", "standard")
+
+
+def _is_rule_title(title: str, words: object) -> bool:
+    """A section title that names a rule stays in the instruction file. The word list comes from an
+    untrusted policy: anything but a list of non-empty strings falls back to the built-in words."""
+    if not isinstance(words, list) or not any(isinstance(w, str) and w.strip() for w in words):
+        words = list(_RULE_WORDS)
+    low = title.lower()
+    return any(w.strip().lower() in low for w in words if isinstance(w, str) and w.strip())
+
+
+def _git_ignored(path: Path) -> bool:
+    """True when git ignores the path: a skill written there would never be committed."""
+    cwd = path.parent
+    while not cwd.is_dir() and cwd != cwd.parent:
+        cwd = cwd.parent
+    try:
+        r = subprocess.run(
+            ["git", "check-ignore", "-q", "--", str(path)],
+            cwd=cwd,
+            capture_output=True,
+            timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return r.returncode == 0
 
 
 def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> list[dict]:
@@ -4285,7 +4540,13 @@ def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> lis
         text = read_text(c) or ""
         for title, lines in _sections(text)[1:]:
             steps = sum(1 for l in lines if re.match(r"^\s*(\d+\.|-|\*)\s+", l))
-            if len(lines) >= policy["restructure"]["procedure_min_lines"] and steps >= 6:
+            if (
+                len(lines) >= policy["restructure"]["procedure_min_lines"]
+                and steps >= 6
+                and _movable_section(lines)
+                and not _is_rule_title(title, policy["restructure"].get("keep_in_instructions"))
+                and not _git_ignored(_procedure_skill_path(c, title))
+            ):
                 props.append(
                     {
                         "kind": "procedure-to-skill",
@@ -4347,6 +4608,13 @@ def _register_plugin(plugin: str, desc: str, policy: dict, restore: list[str]) -
         backup([us])
         km[name] = {"source": {"source": "directory", "path": str(mk)}}
         us.write_text(dump_json(udata), encoding="utf-8")
+
+
+def _procedure_skill_path(path: Path, title: str) -> Path:
+    root = path.parent
+    if path.parent != config_dir() and path.parent.name != ".claude":
+        root = path.parent / ".claude"
+    return root / "skills" / slugify(title)[:40] / "SKILL.md"
 
 
 def proposal_edits(p: dict, policy: dict) -> dict[Path, tuple[str, str]]:
@@ -4705,6 +4973,11 @@ BRIEF_FR = {
         "fichier généré et lourd chargé à chaque session",
         "ne pas l'importer : le citer par son chemin",
     ),
+    "GENERATE_SKIPPED": (
+        "tokens",
+        "élément du scope utilisateur non recopié dans le projet",
+        "mettre [generate] skip_user_duplicates = false pour le copier",
+    ),
     "MODEL_LEGACY": (
         "tokens",
         "modèle d'une génération précédente",
@@ -4867,6 +5140,11 @@ BRIEF_EN = {
         "tokens",
         "heavy generated file loaded every session",
         "do not import it: point to it by path",
+    ),
+    "GENERATE_SKIPPED": (
+        "tokens",
+        "user-scope item not copied into the project",
+        "set [generate] skip_user_duplicates = false to copy it",
     ),
     "MODEL_LEGACY": (
         "tokens",
@@ -5603,7 +5881,8 @@ def scaffold_project(repo: Path, policy: dict, rep: Report) -> None:
             True,
         )
         rep.new_files[agents] = (
-            AGENTS_SKELETON.format(name=repo.name, commands=detect_commands(repo)),
+            AGENTS_SKELETON.format(name=repo.name, commands=detect_commands(repo))
+            + (GUIDELINES_SECTION if policy["instructions"].get("baseline_guidelines", True) else ""),
             0o644,
         )
         if policy["instructions"]["claude_md_import"]:
@@ -6496,6 +6775,7 @@ def session_settings(policy: dict) -> dict:
                             "command": exe,
                             "args": [script, GUARD_MARKER],
                             "timeout": 30,
+                            "onFailure": "block",
                         }
                     ],
                 }

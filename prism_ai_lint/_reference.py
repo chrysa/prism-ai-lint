@@ -98,6 +98,71 @@ KNOWN_SETTINGS_KEYS = {
     "subagentPromptCacheTtl",
     "strictKnownMarketplaces",
     "blockedMarketplaces",
+    "advisorModel",
+    "allowAllClaudeAiMcps",
+    "allowClaudeInChromeWithManagedMcp",
+    "allowManagedDomainsOnly",
+    "allowManagedMcpServersOnly",
+    "allowManagedReadPathsOnly",
+    "allowedChannelPlugins",
+    "allowedProviders",
+    "appendPlugins",
+    "autoCompactEnabled",
+    "autoCompactWindow",
+    "availableModelsMatch",
+    "browserExternalPageTools",
+    "channelsEnabled",
+    "classifyAllShell",
+    "copyOnSelect",
+    "deniedModels",
+    "diffTool",
+    "disableAgentView",
+    "disableAutoMode",
+    "disableBrowserExternalNavigation",
+    "disableDeepLinkRegistration",
+    "disableDesktopLocalSessions",
+    "disableRemoteControl",
+    "disableSideloadFlags",
+    "editorMode",
+    "enforceAvailableModels",
+    "fastMode",
+    "fastModePerSessionOptIn",
+    "fileCheckpointingEnabled",
+    "forceLoginGatewayUrl",
+    "forceRemoteSettingsRefresh",
+    "gatewayInternalNetworks",
+    "managedMcpServers",
+    "managedSourcesBehavior",
+    "minimumVersion",
+    "parentSettingsBehavior",
+    "plansDirectory",
+    "pluginSuggestionMarketplaces",
+    "pluginTrustMessage",
+    "policyHelper",
+    "prStatusFooterEnabled",
+    "prUrlTemplate",
+    "prependPlugins",
+    "promptCacheTtl",
+    "requiredMaximumVersion",
+    "showThinkingSummaries",
+    "skipAutoPermissionPrompt",
+    "skipDangerousModePermissionPrompt",
+    "skipWebFetchPreflight",
+    "spellcheck",
+    "spinnerTipsOverride",
+    "spinnerVerbs",
+    "sshConfigs",
+    "sshHostAllowlist",
+    "switchModelsOnFlag",
+    "teammateDefaultModel",
+    "teammateMode",
+    "timeFormat",
+    "timeZone",
+    "verbose",
+    "viewMode",
+    "voice",
+    "voiceEnabled",
+    "worktree",
 }
 # Keys a repository file cannot set (dead config in .claude/settings*.json).
 PROJECT_DEAD_KEYS = {
@@ -287,6 +352,13 @@ HOOK_TYPES = {
     "prompt": ("prompt",),
     "agent": ("prompt",),
 }
+# Optional handler fields (hooks docs, 2026-10): name -> accepted type or values.
+HOOK_FIELD_TYPES = {
+    "onFailure": ("block",),
+    "asyncRewake": bool,
+    "continueOnBlock": bool,
+    "statusMessage": str,
+}
 SHELL_META = re.compile(r"[|&;<>`()]|\$\((?!\s)|\s&&\s|\|\|")
 
 SKILL_FIELDS = {
@@ -445,6 +517,16 @@ SNAP="$SNAP_DIR/snapshot-$(date +%Y%m%d-%H%M%S).md"
 exit 0
 """
 
+SESSION_CONTEXT_HOOK = """#!/usr/bin/env bash
+# SessionStart hook: print the git state once so the agent need not spend tool calls on it.
+# Written by prism-ai-lint. Output stays under ~25 lines. Never fails the session.
+git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+echo "branch: $(git branch --show-current 2>/dev/null || echo DETACHED)"
+git status --porcelain 2>/dev/null | head -15
+git log --oneline -3 2>/dev/null
+exit 0
+"""
+
 # Lines a repo should git-ignore so secrets never get committed. Appended (never
 # overwritten) to .gitignore under a labelled block when any are missing.
 SECRETS_GITIGNORE = [
@@ -511,6 +593,8 @@ def model_status(name: str) -> str:
     return "legacy" if base in LEGACY_MODELS else ""
 
 
+# defaultMode values (permission-modes docs, 2026-10); anything else is a typo.
+PERMISSION_MODES = {"default", "acceptEdits", "auto", "plan", "dontAsk", "bypassPermissions"}
 MODEL_ALIASES = {"sonnet", "opus", "haiku", "fable"}
 
 

@@ -6,6 +6,7 @@ max_import_depth = 4
 doctrine_dir = "doctrine/rules"
 generated_marker = "GENERATED"
 rendered_files = ["CLAUDE.md", "AGENTS.md", ".github/copilot-instructions.md", ".cursorrules", ".windsurfrules", "GEMINI.md"]
+baseline_guidelines = true
 claude_md_import = true
 min_duplicate_line_len = 30
 style_checks = true
@@ -77,10 +78,17 @@ extra_files = []
 standards_markers = []
 
 [generate]
+skip_user_duplicates = true
 project_settings = true
+default_model = "haiku"
+default_effort = "low"
 user_settings = true
 rtk_config = true
 format_hook = true
+read_guard_hook = true
+read_guard_kb = 256
+session_context_hook = true
+compact_hook = true
 skills = ["check", "review-changes"]
 agents = ["code-reviewer", "test-runner", "security-auditor", "infra-reviewer"]
 mcp = ["github", "sentry", "supabase", "playwright"]
@@ -110,7 +118,7 @@ preferred_model = "sonnet"
 heavy_models = ["opus", "fable"]
 subagent_model = "haiku"
 max_effort = "high"
-effort_levels = ["low", "medium", "high"]
+effort_levels = ["low", "medium", "high", "xhigh", "max"]
 
 [scopes]
 skill = ["project", "user"]
@@ -125,3 +133,4 @@ min_pack_agents = 3
 min_skill_family = 3
 skill_keep_lines = 150
 procedure_min_lines = 15
+keep_in_instructions = ["negotiable", "must", "never", "always", "rule", "convention", "security", "policy", "standard", "guardrail", "constraint", "boundar", "principle", "doctrine", "critical"]

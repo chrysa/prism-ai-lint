@@ -4,6 +4,56 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-035 · Hook fields are validated; gating hooks should fail closed; SessionStart prints git state
+New findings `HOOK_FIELD_VALUE` (bad `onFailure`, `asyncRewake`, `continueOnBlock`, `statusMessage`) and
+`HOOK_FAIL_OPEN` (info: a PreToolUse/UserPromptSubmit script that blocks via exit 2 or permissionDecision, without
+`onFailure: "block"`, lets calls through when it crashes or times out). The installed guard hook now sets
+`onFailure: "block"`. `--generate` adds a SessionStart hook (git branch, 15 status lines, 3 commits) so the agent
+skips those tool calls. **Why:** fail closed is the project rule, and the docs say failures do not block by default.
+Report only: the fixer never edits a user's hook. **Reverse:** `[generate] session_context_hook = false`.
+
+## D-034 · Generated hooks that save tokens and keep memory across compaction
+`--generate` adds a PreToolUse `Read` guard (exit 2 above `read_guard_kb`, default 256 KB, only when the read has no
+offset/limit) and a PreCompact hook that snapshots git state. **Why:** one whole-file read of a big file costs tens of
+thousands of tokens; a compaction otherwise forgets uncommitted work. Both are cost aids, not security controls, so
+they fail open on any error. PostToolUse cannot rewrite built-in tool output, so no output-trimming hook is generated.
+**Reverse:** `[generate] read_guard_hook = false`, `compact_hook = false`.
+
+## D-033 · Reference follows the docs: settings keys, permission modes, effort scale
+Added ~65 documented top-level settings keys, `PERMISSION_MODES` (incl. `auto`, `dontAsk`), and `xhigh`/`max`
+in the effort scale. New findings: `PERM_MODE_UNKNOWN` (typo in `defaultMode`, never rewritten) and
+`SETTINGS_SKIPS_PROMPT` (`skip*PermissionPrompt`, `skipWebFetchPreflight` set true; reported, never changed).
+**Why:** a key unknown to the tool was reported as noise, and `xhigh`/`max` ranked -1 so a high effort floor was
+never flagged. Knowing a key never allows it. **Reverse:** drop the keys from `_reference.py` (snapshot 2026-10).
+
+## D-032 · Scaffolded AGENTS.md carries a short working-style section
+Five lines (assumptions, smallest change, surgical edits, verifiable check, short replies), only when no
+instruction file exists (`[instructions] baseline_guidelines`). **Why:** a short always-loaded
+section is cheap and prevents over-building; a long copy of an external guideline file is not
+(about 600 tokens in every session). Written in our own words: see
+[docs/EXTERNAL_REFERENCES.md](docs/EXTERNAL_REFERENCES.md).
+
+## D-031 · Rule sections never become on-demand skills
+`procedure-to-skill` skips a CLAUDE.md section whose title contains a word from
+`[restructure] keep_in_instructions` (non-negotiable, must, never, rules, conventions, security...). **Why:** a
+"Non-negotiable conventions" section moved to a skill is loaded only when the model decides to read it;
+rules must stay always-loaded, procedures may not. A plain word list, not a regex: the policy is untrusted.
+||||||| parent of c22a781 (feat: generate deny-reads and external-action asks only for the toolchains the project uses)
+## D-030 · Generated settings default to the cheapest model and effort
+`--generate` writes `model = "haiku"` and `effortLevel = "low"` into a project's settings when
+absent (`[generate] default_model`, `default_effort`; `""` disables). **Why:** the tool ranks work by
+tokens saved; a project that never chose gets the cheapest session. An existing value always wins
+(`setdefault`), and the policy values are untrusted: only a known alias and a known level are written.
+
+## D-029 · Generated permissions follow the detected stack
+`--generate` writes the token-saving deny-reads only for toolchains the project uses (Python caches
+only for Python, `node_modules`/`.next`/`dist` only with a package manager). External-action `ask` rules and
+`Read(**/.terraform/**)` stay in every project: an `ask` overrides a user-scope allow, and stack detection
+can miss a tool (nested manifests, Enterprise remotes). **Why:** the goal is a
+configuration as close to the project as possible; rules for absent tools are noise. Rules already
+present in a file are never removed by the tool (never loosen). `docker compose up/down` is generated
+as `ask`, not `allow`: starting or stopping containers is an action with effect.
+
 ## D-028 · Renamed to prism-ai-lint; former names keep working during the transition
 Distribution, package, CLI, policy file, cache and pre-commit hook are now `prism-ai-lint` /
 `prism_ai_lint` / `.prism-ai-lint.toml` / `~/.cache/prism-ai-lint/`. The version is computed
@@ -30,7 +80,7 @@ coverage signal. **How to apply:** turn off automatic analysis in SonarCloud, th
 The core ships generic defaults only. Repository-specific critical documents go in
 `[critical] extra_files` of that repository's `.prism-ai-lint.toml`; standards-repository markers go in
 `[profile] standards_markers`. This repository lists its own `docs/FIXER_POLICY.md`,
-`docs/SHARED_STANDARDS_MAPPING.md` and `docs/CLAUDE_CODE_BEST_PRACTICES.md`, so its guard
+`docs/CONVENTIONS.md` and `docs/CLAUDE_CODE_BEST_PRACTICES.md`, so its guard
 protection is unchanged (a test runs the guard against it). **Why:** prism-ai-lint is a standalone,
 public tool; hard-coding one ecosystem's file names in every scan was wrong for other users.
 **How to apply:** `extra_files` only adds protection; a guarded agent cannot remove entries
@@ -157,19 +207,15 @@ context and unsafe generation. **How to apply:** detect first, generate second; 
 info-level guidance when intent is unclear; ask interactively when the choice changes behaviour;
 never use adaptation to loosen config automatically.
 
-## D-014 · shared-standards is the normative base, mapped locally
-[chrysa/shared-standards](https://github.com/chrysa/shared-standards) is the external
-normative source for repo quality, Python tooling, CI/CD, documentation, security and agent
-legibility. prism-ai-lint records the local adaptation in
-[docs/SHARED_STANDARDS_MAPPING.md](docs/SHARED_STANDARDS_MAPPING.md) and translates the
-actionable subset into [.claude/rules/shared-standards.md](.claude/rules/shared-standards.md).
-**Why:** copying the whole standards corpus would bloat context and drift from the canon; a
-short mapping keeps the source of truth external while making the local exceptions explicit.
-The local exceptions are deliberate: root `prism_ai_lint/` package while prism-ai-lint is repo-local
-(D-011), zero runtime dependencies over container-first runtime, and gradual engine
-decomposition rather than a documentation-only rewrite. **Reverse:** only if prism-ai-lint becomes
-fully scaffolded by project-init with generated standards views; then replace the hand-written
-mapping with generated views from shared-standards.
+## D-014 · Conventions are written down in this repository
+The conventions prism-ai-lint follows for itself (repo legibility, Python tooling, CI/CD, documentation,
+security and agent legibility) live in [docs/CONVENTIONS.md](docs/CONVENTIONS.md), and the actionable
+subset is translated into [.claude/rules/conventions.md](.claude/rules/conventions.md).
+**Why:** a public tool must not depend on a document that lives outside it; a short, local file keeps
+context small while making the deliberate exceptions explicit: root `prism_ai_lint/` package while
+prism-ai-lint is repo-local (D-011), zero runtime dependencies over container-first runtime, and gradual
+engine decomposition. **Reverse:** if the conventions grow, split them by topic rather than copying an
+external corpus.
 
 ## D-013 · Claude Code best practices are mapped, not copied
 The official Claude Code best-practice guidance is captured as a compact prism-ai-lint mapping in
@@ -184,7 +230,7 @@ independent review. **Reverse:** only if the official guidance becomes directly 
 as a short machine-readable policy; until then, keep the mapping curated and dated.
 
 ## D-012 · Computed version + release-on-main (git-cliff)
-The version is **computed, never typed** (shared-standards CI-045): `VERSION` is
+The version is **computed, never typed** : `VERSION` is
 derived at runtime from package metadata, else `git describe`, else a dev
 placeholder. A push to `main` runs the Release workflow: git-cliff computes the
 next semver from the Conventional Commits since the last tag (`--bumped-version`),
@@ -194,19 +240,19 @@ builds the notes, and the commit is tagged `vX.Y.Z` with a matching GitHub relea
 is the single source of truth. git-cliff alone (no GitVersion/.NET) keeps the
 release job simple and works from zero tags. **How to apply:** never edit a
 version by hand; land Conventional Commits and let main cut the release.
-`cliff.toml` is copied from shared-standards.
+`cliff.toml` configures git-cliff.
 
 ## D-011 · Engine as a package with an empty `__init__` (not `src/`)
 The engine is a package `prism_ai_lint/` (`_engine.py` for now), with an **empty
 `__init__.py`**; callers import `prism_ai_lint._engine`. **Why:** the package layout
 satisfies "code split into modules" and lets `_engine` be broken into finer
 modules later (issue #3) without changing the import surface. `src/` layout is a
-shared-standards rule for **distributed libraries** with a public API; prism-ai-lint is
+common rule for **distributed libraries** with a public API; prism-ai-lint is
 a repo-local CLI (D-003) run from a clone, so a **root package** keeps
 `import prism_ai_lint._engine` working with no install and no `sys.path` hacks. The
 empty `__init__` follows the request/standard to keep package inits free of
 logic. **Reverse:** if published as an installable library, move to `src/` and add
-a public API in `__init__`. Other shared-standards points are met: all tool config
+a public API in `__init__`. Other common practices are met: all tool config
 in `pyproject.toml` `[tool.*]`, Conventional Commits, invariant local `make` shortcuts,
 CI wired directly to the tools, Ruff line-length 120, caches git-ignored.
 
