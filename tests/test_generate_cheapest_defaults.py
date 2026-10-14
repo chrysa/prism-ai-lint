@@ -48,3 +48,16 @@ def test_untrusted_policy_values_are_replaced(linter_module, tmp_path, monkeypat
         linter_module, _repo(tmp_path), monkeypatch, tmp_path, default_model="evil\nroute", default_effort="max; rm"
     )
     assert "model" not in data and "effortLevel" not in data
+
+
+def test_a_sorted_settings_file_stays_sorted(linter_module, tmp_path, monkeypatch):
+    repo = _repo(tmp_path, {"attribution": {"commit": "", "pr": ""}, "permissions": {"allow": [], "deny": []}})
+    data = _generated(linter_module, repo, monkeypatch, tmp_path)
+    assert list(data) == sorted(data)
+    assert all(list(v) == sorted(v) for v in data.values() if isinstance(v, dict))
+
+
+def test_an_unsorted_settings_file_keeps_its_order(linter_module, tmp_path, monkeypatch):
+    repo = _repo(tmp_path, {"permissions": {"allow": []}, "attribution": {"commit": "", "pr": ""}})
+    data = _generated(linter_module, repo, monkeypatch, tmp_path)
+    assert list(data)[:2] == ["permissions", "attribution"]
