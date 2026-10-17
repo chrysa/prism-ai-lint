@@ -22,6 +22,7 @@ class RunState:
 
     verbosity: int = 0
     show_diff: bool = False  # --diff: print a unified diff of every changed file
+    force: bool = False  # --force: regenerate the files the tool generates from scratch (backups kept, never loosens)
     debug_log_path: Path | None = None
     debug_log_fh: Any = None
     scaffold: bool = True
