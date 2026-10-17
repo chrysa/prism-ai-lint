@@ -22,6 +22,14 @@ from prism_ai_lint._reference import (
 from prism_ai_lint._runtime import dedupe, log, read_text
 from prism_ai_lint.report import Report
 
+# Interpreters whose first non-flag argument is the script that actually runs.
+INTERPRETERS = frozenset(
+    {"node", "nodejs", "python", "python3", "bash", "sh", "zsh", "deno", "bun", "tsx", "ruby", "perl"}
+)
+SCRIPT_EXT = (".js", ".cjs", ".mjs", ".ts", ".py", ".sh", ".rb", ".pl")
+# Flags that mean "no script file follows" (python -m mod, node -e code, ...).
+NO_FILE_FLAGS = frozenset({"-m", "-c", "-e", "-p", "--eval", "--print", "--input-type"})
+
 PLACEHOLDER_RE = re.compile(r"^[\"']?\$\{?CLAUDE_(PROJECT_DIR|PLUGIN_ROOT|PLUGIN_DATA)\}?[\"']?")
 
 
@@ -42,6 +50,40 @@ class HookChecker:
         p = Path(token)
         return p if p.is_absolute() else base / p
 
+    def hook_script(self, h: dict, base: Path, scope: str) -> tuple[Path | None, bool]:
+        """The file a command hook runs and whether an interpreter runs it (so no exec bit is needed).
+
+        `node .claude/hooks/x.cjs` and `command: bash` with the script in args both resolve to the script,
+        not to the interpreter."""
+        args = h.get("args") if isinstance(h.get("args"), list) else None
+        words = (
+            [str(h.get("command", ""))] + [str(a) for a in args]
+            if args is not None
+            else str(h.get("command", "")).split()
+        )
+        if not words:
+            return None, False
+        exe = Path(words[0].strip("\"'")).name
+        if exe in INTERPRETERS:
+            rest = words[1:]
+            if exe in ("deno", "bun") and rest[:1] == ["run"]:
+                rest = rest[1:]
+            for word in rest:
+                word = word.strip("\"'")
+                if word in NO_FILE_FLAGS:
+                    return None, True
+                if word.startswith("-"):
+                    continue
+                token = word.replace("${CLAUDE_PLUGIN_ROOT}", str(base)) if scope == "plugin" else word
+                if "/" not in token and not token.endswith(SCRIPT_EXT):
+                    return None, True
+                return self.resolve_script(token if "/" in token else "./" + token, base), True
+            return None, True
+        first = words[0]
+        if scope == "plugin":
+            first = first.replace("${CLAUDE_PLUGIN_ROOT}", str(base))
+        return self.resolve_script(first, base), False
+
     def to_exec_form(self, command: str, scope: str) -> tuple[str, list[str]] | None:
         """Split a simple shell-form command into exec form, anchoring relative paths."""
         body = PLACEHOLDER_RE.sub(lambda m: "${CLAUDE_" + m.group(1) + "}", command.strip())
@@ -57,10 +99,19 @@ class HookChecker:
             return None
         if not tokens:
             return None
-        exe = tokens[0]
+        exe, rest = tokens[0], tokens[1:]
         if scope == "project" and "/" in exe and not exe.startswith(("/", "~", "$")):
             exe = "${CLAUDE_PROJECT_DIR}/" + exe.removeprefix("./")
-        return exe, tokens[1:]
+        elif scope == "project" and Path(exe).name in INTERPRETERS:
+            for i, word in enumerate(rest):
+                if word in NO_FILE_FLAGS:
+                    break
+                if word.startswith("-"):
+                    continue
+                if "/" in word and not word.startswith(("/", "~", "$")):
+                    rest[i] = "${CLAUDE_PROJECT_DIR}/" + word.removeprefix("./")
+                break
+        return exe, rest
 
     def check_matcher(self, event: str, matcher: Any, path: Path, rep: Report) -> Any:
         if matcher in (None, "", "*"):
@@ -165,6 +216,9 @@ class HookChecker:
             if "args" not in h:
                 first = cmd.split()[0] if cmd.split() else ""
                 relative = "/" in first and not first.strip("\"'").startswith(("/", "~", "$"))
+                if not relative and Path(first.strip("\"'")).name in INTERPRETERS:
+                    word = next((w for w in cmd.split()[1:] if not w.startswith("-")), "")
+                    relative = "/" in word and not word.strip("\"'").startswith(("/", "~", "$"))
                 unquoted_ph = bool(re.match(r"^\$\{?CLAUDE_\w+\}?/", cmd))
                 if relative or unquoted_ph:
                     conv = self.to_exec_form(cmd, scope)
@@ -179,12 +233,12 @@ class HookChecker:
                             path,
                             f"{event}: {cmd[:60]!r} depends on the current directory",
                         )
-            script = self.resolve_script(str(h["command"]).split()[0] if "args" not in h else h["command"], base)
+            script, via_interpreter = self.hook_script(h, base, scope)
             if script is not None:
                 if not script.exists():
                     rep.add("error", "HOOK_MISSING_SCRIPT", path, f"{event}: script not found: {script}")
                 else:
-                    if not os.access(script, os.X_OK) and script not in rep.chmods:
+                    if not via_interpreter and not os.access(script, os.X_OK) and script not in rep.chmods:
                         rep.add(
                             "warn",
                             "HOOK_NOT_EXECUTABLE",
@@ -246,9 +300,7 @@ class HookChecker:
         """A gating script (exit 2 / permissionDecision) without onFailure=block lets calls through when it crashes."""
         if event not in ("PreToolUse", "UserPromptSubmit") or h.get("onFailure") == "block":
             return
-        args = h.get("args")
-        target = str(args[0]) if isinstance(args, list) and args and "/" not in str(h["command"]) else str(h["command"])
-        script = self.resolve_script(target.split()[0] if target.split() else "", base)
+        script, _ = self.hook_script(h, base, "project")
         if script is None or not script.is_file():
             return
         if re.search(r"\bexit\s+2\b|permissionDecision", read_text(script) or ""):

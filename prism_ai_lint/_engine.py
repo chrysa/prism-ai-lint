@@ -134,10 +134,12 @@ from prism_ai_lint._runtime import (
 )
 from prism_ai_lint.agent_contract import AgentContract
 from prism_ai_lint.agent_converter import ADAPTERS, AgentConverter
+from prism_ai_lint.claude_files_checker import ClaudeFilesChecker
 from prism_ai_lint.compression_checker import CompressionChecker
 from prism_ai_lint.config_flags import ConfigFlags
 from prism_ai_lint.content_validation import CriticalContentValidator as CriticalContentValidator
 from prism_ai_lint.desktop_checker import DesktopChecker
+from prism_ai_lint.env_checker import EnvChecker
 from prism_ai_lint.feedback_renderer import FeedbackRenderer
 from prism_ai_lint.finding import Finding
 from prism_ai_lint.guard_checker import BASH_WRITE_HINT as BASH_WRITE_HINT
@@ -149,6 +151,7 @@ from prism_ai_lint.instruction_checker import InstructionChecker
 from prism_ai_lint.issue_reporter import Anonymizer, IssueReporter, local_identity
 from prism_ai_lint.llmtrim_checker import LlmtrimChecker
 from prism_ai_lint.mcp_checker import McpChecker
+from prism_ai_lint.mod_checker import ModChecker
 from prism_ai_lint.pdf_checker import PdfChecker
 from prism_ai_lint.plugin_registry import PluginRegistry
 from prism_ai_lint.portfolio_checker import PortfolioChecker
@@ -1465,6 +1468,9 @@ _SECRETS = InlineSecretScanner()
 
 
 _HOOKS = HookChecker(check_env_secrets=_SECRETS.check_env_secrets)
+_MODS = ModChecker()
+_ENV = EnvChecker()
+_CLAUDE_FILES = ClaudeFilesChecker()
 
 
 def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report) -> dict | None:
@@ -1594,6 +1600,7 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
     check_plugin_settings(new, path, rep, scope)
     new = move_settings_mcp(new, base, path, rep, scope)
 
+    _ENV.check(new, path, rep)
     if isinstance(new.get("env"), dict):
         new["env"] = _SECRETS.check_env_secrets(new["env"], path, rep, "env", "remove")
         if not new["env"] and data.get("env"):
@@ -1671,6 +1678,7 @@ PLUGIN_KNOWN_KEYS = {
     "keywords",
     "userConfig",
     "dependencies",
+    "types",  # a mod's `$.state` type contract, e.g. "./types/index.d.ts"
     *PLUGIN_COMPONENT_KEYS,
 }
 SEMVER_RE = re.compile(r"^\d+\.\d+\.\d+(?:-[\w.]+)?(?:\+[\w.]+)?$")
@@ -1728,6 +1736,58 @@ HINTS.update(
         "ENABLED_PLUGINS": (
             "enabledPlugins keys are 'plugin@marketplace' with boolean values.",
             DOCS + "settings-reference",
+        ),
+        "INSTR_DEAD_REF": (
+            "An instruction file that names a missing command or file sends the agent on a search; fix or remove the line.",
+            DOCS + "memory",
+        ),
+        "TOKEN_LISTING_BUDGET": (
+            "Skill and subagent descriptions are sent every turn; manual-only skills can drop out of that listing.",
+            DOCS + "skills",
+        ),
+        "ENV_WEAKENS_SECURITY": (
+            "These variables switch off a safety prompt or protection of the shell tool or the managed environment.",
+            DOCS + "env-vars",
+        ),
+        "ENV_DEPRECATED": (
+            "The variable is deprecated, removed or has no effect: the setting does nothing or points to a replacement.",
+            DOCS + "env-vars",
+        ),
+        "ENV_TOKEN_CAP": (
+            "A raised output cap or a longer cache TTL raises what a single large output or a cache write costs.",
+            DOCS + "env-vars",
+        ),
+        "ENV_SANDBOX_WEAK": (
+            "enableWeakerNestedSandbox trades isolation for compatibility inside a container.",
+            DOCS + "sandboxing",
+        ),
+        "MOD_MODULE": (
+            "hooks.json `modules` lists the files the engine loads; each must exist inside the plugin and export `register`.",
+            DOCS + "plugins/overview",
+        ),
+        "MOD_TYPES": (
+            "A mod that keeps values in $.state declares its type contract in plugin.json `types`.",
+            DOCS + "plugins/overview",
+        ),
+        "MOD_PROCESS": (
+            "A mod runs inside the engine: $.process starts programs outside the permission rules.",
+            DOCS + "plugins/overview",
+        ),
+        "MOD_FS_WRITE": (
+            "A mod runs inside the engine: $.fs writes are not covered by the project's deny rules.",
+            DOCS + "plugins/overview",
+        ),
+        "MOD_TOOL_REWRITE": (
+            "A tool.call hook that rewrites the call can change a command after the permission rules matched it.",
+            DOCS + "hooks",
+        ),
+        "MOD_MODEL": (
+            "Each $.model call spends tokens on top of the session.",
+            DOCS + "costs",
+        ),
+        "MOD_NO_TEST": (
+            "`claude plugin test` runs the mod's *.test.ts files; a mod without one is unverified.",
+            DOCS + "plugins/overview",
         ),
         "OUTPUT_STYLE": (
             "Output styles are Markdown with name/description frontmatter.",
@@ -1970,9 +2030,11 @@ def check_plugin_dir(root: Path, rep: Report, policy: dict) -> None:
                     "comments, trailing commas or BOM in strict JSON",
                     True,
                 )
+            _MODS.check(root, hooks_file, hdata, data, rep)
             fixed_hooks = _HOOKS.check_hooks(hdata.get("hooks", {}), root, hooks_file, rep, "plugin")
-            if fixed_hooks != hdata.get("hooks") or hrep:
-                rep.edit(hooks_file, hraw, dump_json({**hdata, "hooks": fixed_hooks}))
+            # A mod's hooks.json has `modules` and no `hooks`: never add an empty `hooks` key to it.
+            if ("hooks" in hdata and fixed_hooks != hdata["hooks"]) or hrep:
+                rep.edit(hooks_file, hraw, dump_json({**hdata, "hooks": fixed_hooks} if "hooks" in hdata else hdata))
         except json.JSONDecodeError as e:
             rep.add("error", "JSON_INVALID", hooks_file, f"invalid JSON: {e}")
     if (root / ".mcp.json").exists():
@@ -3079,6 +3141,8 @@ def write_json_merged(path: Path, wanted: dict, rep: Report, what: str) -> None:
             servers = new.setdefault("mcpServers", {})
             for name, cfg in v.items():
                 servers.setdefault(name, cfg)
+        elif state.force and k in ("model", "effortLevel", "attribution", "$schema"):
+            new[k] = v  # generated scalar keys restart from the baseline; permissions and hooks only ever grow
         else:
             new.setdefault(k, v)
     if new == data:
@@ -3103,7 +3167,14 @@ def write_json_merged(path: Path, wanted: dict, rep: Report, what: str) -> None:
 
 
 def gen_new_file(path: Path, content: str, rep: Report, what: str, mode: int = 0o644) -> None:
-    if path.exists() or path in rep.new_files:
+    if path in rep.new_files:
+        return
+    if path.exists():
+        # --force: rebuild a generated file from the template (apply() keeps a backup); identical content is left alone.
+        old = read_text(path)
+        if state.force and old is not None and old != content:
+            rep.add("info", "GENERATE", path, f"{what} regenerated", True)
+            rep.edit(path, old, content)
         return
     rep.add("info", "GENERATE", path, f"{what} created", True)
     rep.new_files[path] = (content, mode)
@@ -6146,6 +6217,7 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
     rep.proposals = compute_proposals(dup_roots, repos, policy)
     for r in repos:
         check_token_levers(r, policy, rep)
+        _CLAUDE_FILES.check_repo(r, rep)
         check_scopes(r, policy, rep)
     if getattr(args, "generate", False):
         if args.user or args.user_only:
@@ -6467,6 +6539,8 @@ def visible_findings(findings: list[Finding]) -> list[Finding]:
 
 
 CATEGORIES = [
+    ("MOD_", "plugins"),
+    ("ENV_", "settings"),
     ("PERM_", "permissions"),
     ("HOOK_", "hooks"),
     ("HELPER_", "hooks"),
@@ -6996,6 +7070,88 @@ def print_issue_report(rep: Report, repos: list[Path], policy: dict) -> None:
     print("\n" + IssueReporter(anon, VERSION).render(rep.findings))
 
 
+def audit_pending(rep: Report) -> list[str]:
+    """Every path a --fix --generate run would write, move or chmod (what --audit lists)."""
+    return sorted({str(p) for p in [*rep.edits, *rep.new_files, *rep.chmods]} | {f"{s} -> {d}" for s, d in rep.moves})
+
+
+def render_markdown_report(rep: Report, fixed: list[Finding], repos: list[Path], audit: bool) -> str:
+    """Markdown report for humans: profile, counts, what was fixed, what needs a decision, next step."""
+    out = ["# prism-ai-lint report", ""]
+    out += [f"- Repositories: {len(repos)}", f"- {VERSION}", ""]
+    out += ["## Detected profile", ""]
+    for prof in getattr(rep, "project_profiles", []):
+        out.append(
+            f"- `{prof['path']}`: {prof['kind']} ({prof['confidence']} confidence); signals: {', '.join(prof['signals'])}"
+        )
+    if len(repos) > 1:
+        out += [
+            "",
+            "## Per repository",
+            "",
+            "| Repository | Errors | Warnings | Info | Would change |",
+            "| --- | ---: | ---: | ---: | ---: |",
+        ]
+        pending_all = audit_pending(rep)
+        for r in sorted(repos):
+            prefix = str(r) + "/"
+            mine = [f for f in rep.findings if str(f.path) == str(r) or str(f.path).startswith(prefix)]
+            n = {lvl: sum(1 for f in mine if f.level == lvl) for lvl in ("error", "warn", "info")}
+            pend = sum(1 for p in pending_all if p.startswith(prefix))
+            out.append(f"| `{r.name}` | {n['error']} | {n['warn']} | {n['info']} | {pend} |")
+    counts = {lvl: rep.count(lvl) for lvl in ("error", "warn", "info")}
+    out += ["", "## Summary", "", f"- errors: {counts['error']}, warnings: {counts['warn']}, info: {counts['info']}"]
+    out.append(f"- fixed in this run: {len(fixed)}")
+    if audit:
+        pending = audit_pending(rep)
+        out += [f"- would change with --fix --generate: {len(pending)} file(s)", ""]
+        out += [f"  - `{p}`" for p in pending]
+    out += ["", "## Needs a human decision", ""]
+    manual = [finding_feedback(f) for f in rep.findings if not f.fixable]
+    if not manual:
+        out.append("Nothing.")
+    for fb in manual:
+        line = f"- **{fb['level']} {fb['code']}** `{fb['path']}`: {redact(fb['message'])}"
+        if fb.get("next_action"):
+            line += f" Next: {redact(str(fb['next_action']))}"
+        out.append(line)
+    out += ["", "## Fixable automatically", ""]
+    auto = [finding_feedback(f) for f in rep.findings if f.fixable]
+    out += [f"- {fb['code']} `{fb['path']}`: {redact(fb['message'])}" for fb in auto] or ["Nothing."]
+    out += [
+        "",
+        "## Next command",
+        "",
+        "`prism-ai-lint . --fix --generate` (reversible, never loosens), then `prism-ai-lint . -i` for the decisions above.",
+        "",
+    ]
+    return "\n".join(out)
+
+
+def write_report(target: Path, repos: list[Path], text: str) -> str | None:
+    """Write the report; refuse a target inside a scanned repository. Returns an error message or None."""
+    dest = target.expanduser().resolve()
+    if any(dest == r or r in dest.parents for r in repos):
+        return f"--report: {dest} is inside a scanned repository; choose a path outside it"
+    try:
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(text, encoding="utf-8")
+    except OSError as error:
+        return f"--report: cannot write {dest}: {error}"
+    return None
+
+
+def _audit_text(rep: Report) -> str:
+    pending = audit_pending(rep)
+    if not pending:
+        return _loc("Audit : rien à changer.", "Audit: nothing to change.")
+    head = _loc(
+        f"Audit (lecture seule) : {len(pending)} fichier(s) changeraient avec --fix --generate :",
+        f"Audit (read-only): {len(pending)} file(s) would change with --fix --generate:",
+    )
+    return head + "\n" + "\n".join(f"  {p}" for p in pending)
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Validate, repair and optimize coding-agent configurations "
@@ -7059,6 +7215,26 @@ def main(argv: list[str] | None = None) -> int:
     )
     ap.add_argument(
         "--full-yes", action="store_true", help="run --fix and accept all local review actions without prompts"
+    )
+    ap.add_argument(
+        "--force",
+        action="store_true",
+        help="like --full-yes --generate, and also regenerate from scratch every file the tool generates "
+        "(hooks, skills, subagents, generated settings keys); existing deny/ask rules and guard hooks are "
+        "kept, instruction files and .mcp.json are never touched; backups kept",
+    )
+    ap.add_argument(
+        "--report",
+        type=Path,
+        metavar="FILE",
+        help="also write a Markdown report (profile, findings, fixed / not fixed, next step) to FILE; "
+        "FILE must be outside the scanned repositories",
+    )
+    ap.add_argument(
+        "--audit",
+        action="store_true",
+        help="strictly read-only: report findings plus every file --fix --generate would change; "
+        "exit 1 when anything is pending (writes nothing, no graphify, no self-update)",
     )
     ap.add_argument("--no-scaffold", action="store_true", help="do not create missing files")
     ap.add_argument("--format", choices=("text", "json"), default="text", help="output format (default: text)")
@@ -7180,8 +7356,19 @@ def main(argv: list[str] | None = None) -> int:
             print(f"warning: [flags] {note}", file=sys.stderr)
         ap.set_defaults(**flag_defaults)
     args = ap.parse_args(argv)
+    if args.audit:
+        if args.fix or args.full_yes or args.force or args.interactive or args.graphify or args.apply_conversion:
+            ap.error(
+                "--audit is read-only; it cannot be combined with --fix, --full-yes, -i, --graphify or --apply-conversion"
+            )
+        args.generate = True  # include what --generate would add in the preview
+        args.no_update_check = True
+    if args.force:
+        args.full_yes = True
+        args.generate = True
+        state.force = True
     if args.full_yes and args.format != "text":
-        ap.error("--full-yes requires --format text")
+        ap.error("--full-yes/--force requires --format text")
     if args.full_yes:
         args.fix = True
         args.interactive = True
@@ -7367,17 +7554,26 @@ def main(argv: list[str] | None = None) -> int:
                 else:
                     log(1, f"Graphify indexed {repo}")
                     print(f"Graphify: indexed {repo}")
+    if args.report:
+        problem = write_report(args.report, repos, render_markdown_report(rep, fixed, repos, args.audit))
+        if problem:
+            print(problem, file=sys.stderr)
+            return 2
     if args.format == "text":
         disc = render_discovery(sys.stdout.isatty())
         if disc:
             print(disc + "\n")
     if args.format == "text" and not (args.details or args.all):
         print(render_brief(rep, fixed, args.fix, len(repos), sys.stdout.isatty()))
+        if args.audit:
+            print(_audit_text(rep))
         for bk in sorted(set(backups)):
             print(_loc("Sauvegarde des fichiers modifiés : ", "Backup of modified files: ") + bk)
         if args.report_issue:
             print_issue_report(rep, repos, policy)
-        code = 1 if rep.count("error") or (args.strict and rep.count("warn")) else 0
+        code = (
+            1 if rep.count("error") or (args.strict and rep.count("warn")) or (args.audit and audit_pending(rep)) else 0
+        )
         write_run_log(
             argv or sys.argv[1:],
             repos,
@@ -7436,12 +7632,14 @@ def main(argv: list[str] | None = None) -> int:
         )
     else:
         print(render_text(rep, args.fix, sys.stdout.isatty(), args.quiet, fixed, applied, failures, backups))
+        if args.audit:
+            print(_audit_text(rep))
         if args.rtk_report:
             report = rtk_report()
             print("\n== rtk report\n" + (report or "rtk not available"))
     if args.report_issue:
         print_issue_report(rep, repos, policy)
-    code = 1 if rep.count("error") or (args.strict and rep.count("warn")) else 0
+    code = 1 if rep.count("error") or (args.strict and rep.count("warn")) or (args.audit and audit_pending(rep)) else 0
     write_run_log(argv or sys.argv[1:], repos, rep, fixed, applied, time.perf_counter() - run_started, code)
     close_debug_log()
     return code

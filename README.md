@@ -97,6 +97,9 @@ prism-ai-lint . --user --fix       # include user scope (~/.claude)
 | `--user` | Include user scope (`~/.claude`) |
 | `--details` | Full per-file report with `→ fix` actions |
 | `--diff` | Show diff of changes |
+| `--audit` | Strictly read-only: report findings and list every file `--fix --generate` would change; exit 1 when anything is pending (CI drift check) |
+| `--report FILE` | Also write a Markdown report (profile, findings, fixed / needs a decision, next command) to FILE; refused inside a scanned repo |
+| `--force` | Like `--full-yes --generate`, and regenerate from scratch every file the tool generates (hooks, skills, subagents, generated settings keys), backups kept. Existing `deny`/`ask` rules and guard hooks are kept, `CLAUDE.md`/`AGENTS.md`/`.mcp.json` untouched; refused with `--audit` |
 | `-v` | Logs; `-vv` includes doc refs; `-vvv` is debug |
 | `-q` | Errors only |
 | `--strict` | Exit 1 on warnings (for CI) |
@@ -174,6 +177,14 @@ Tune generation in `.prism-ai-lint.toml` `[generate]` section: which skills/agen
 **Rules**: invalid `paths` patterns, frontmatter on line 1.
 
 **Plugins**: manifest (name, version, metadata), component paths, `enabledPlugins` and `extraKnownMarketplaces` in settings.
+
+**Mods** (plugins whose `hooks/hooks.json` lists `modules`): each module exists inside the plugin and exports `register`; the manifest `types` contract exists and is declared when the module uses `$.state`; reports (never fixes) a module that runs processes (`$.process`), writes files (`$.fs`), calls a model, or rewrites a `tool.call` with `next({ ...e })`; info when no `*.test.ts` exists.
+
+**Hook scripts**: a script run through an interpreter (`node x.cjs`, `python3 x.py`, `bash x.sh`, or `command: bash` with the script in `args`) is checked for existence like a direct script; a relative one is anchored with `${CLAUDE_PROJECT_DIR}` on `--fix`.
+
+**Environment switches** (`env` block and `sandbox` of a settings file, report only, never edited): variables that turn off a safety prompt or protection (`CLAUDE_CODE_DISABLE_DANGEROUS_RM_TIMEOUT`, `CLAUDE_CODE_DISABLE_ADMIN_ENV_UNION`, ...) and `sandbox.enableWeakerNestedSandbox` are warnings; deprecated or no-op variables, output caps raised above the default (`BASH_MAX_OUTPUT_LENGTH`, `MAX_MCP_OUTPUT_TOKENS`, `CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS`) and a 1 h cache TTL are info.
+
+**Instruction files and listing** (report only): `INSTR_DEAD_REF` lists the `make`/`npm run` commands and repo-relative files that `CLAUDE.md`, `AGENTS.md` and `.claude/rules` name but that do not exist (a path is judged only when its first directory exists, a Makefile with `include` or a package without scripts is not judged). `TOKEN_LISTING_BUDGET` flags a skill listing above about 2000 tokens per turn, naming the biggest skills that could set `disable-model-invocation: true`, and subagent descriptions above 15000 tokens.
 
 **Other files**: misplaced files (`.claude.md`, `mcp.json`, flat skills), GitHub Actions workflows (permissions, credentials, unrestricted Bash), Anthropic API keys anywhere, attribution (assistant signatures).
 
