@@ -44,3 +44,9 @@ Expected terminal line: `traces in repo: 0`.
 - Tests are unannotated (mypy checks `prism_ai_lint.py` / `prism-ai-lint.py`, not `tests/`).
 - Keep fixtures minimal and hermetic; never touch the developer's real `~/.claude*`.
 - Do not lower the coverage floor to make a change pass.
+
+## Report-only checkers
+
+`tests/test_mod_checker.py`, `test_env_checker.py`, `test_claude_files_checker.py` and `test_hook_interpreter_scripts.py` build a
+small tree in `tmp_path`, run one checker and compare the `(level, code)` set; a clean tree must report nothing. `test_audit_mode.py`
+covers `--audit`, `--report` and `--force` end to end (read-only, report outside the repo, deny rules kept).
