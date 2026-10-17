@@ -4,6 +4,15 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-036 · Audit, report and force modes; mods, env switches and dead references are reports
+`--audit` runs read-only and exits 1 when changes are pending; `--report FILE` writes a Markdown report outside the scanned
+repos (with a per-repo table); `--force` regenerates what the tool generates (union for permissions, existing deny/ask rules,
+guard hooks, instruction files and `.mcp.json` kept, backups kept) and implies `--full-yes --generate`. New report-only checks:
+`MOD_*` (plugin mods), `ENV_*` (weakening or deprecated `env` entries, raised output caps, weaker nested sandbox),
+`INSTR_DEAD_REF` and `TOKEN_LISTING_BUDGET`. **Why:** a repo-wide audit must not write, regenerating from scratch must still
+never loosen, and a user's own `env` or mod is theirs to change. A dead reference is judged only where the answer is certain
+(first directory exists, Makefile without `include`, package with scripts). **Reverse:** drop the flag or the checker call.
+
 ## D-035 · Hook fields are validated; gating hooks should fail closed; SessionStart prints git state
 New findings `HOOK_FIELD_VALUE` (bad `onFailure`, `asyncRewake`, `continueOnBlock`, `statusMessage`) and
 `HOOK_FAIL_OPEN` (info: a PreToolUse/UserPromptSubmit script that blocks via exit 2 or permissionDecision, without
