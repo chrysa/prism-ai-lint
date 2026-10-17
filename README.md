@@ -184,6 +184,8 @@ Tune generation in `.prism-ai-lint.toml` `[generate]` section: which skills/agen
 
 **Environment switches** (`env` block and `sandbox` of a settings file, report only, never edited): variables that turn off a safety prompt or protection (`CLAUDE_CODE_DISABLE_DANGEROUS_RM_TIMEOUT`, `CLAUDE_CODE_DISABLE_ADMIN_ENV_UNION`, ...) and `sandbox.enableWeakerNestedSandbox` are warnings; deprecated or no-op variables, output caps raised above the default (`BASH_MAX_OUTPUT_LENGTH`, `MAX_MCP_OUTPUT_TOKENS`, `CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS`) and a 1 h cache TTL are info.
 
+**Instruction files and listing** (report only): `INSTR_DEAD_REF` lists the `make`/`npm run` commands and repo-relative files that `CLAUDE.md`, `AGENTS.md` and `.claude/rules` name but that do not exist (a path is judged only when its first directory exists, a Makefile with `include` or a package without scripts is not judged). `TOKEN_LISTING_BUDGET` flags a skill listing above about 2000 tokens per turn, naming the biggest skills that could set `disable-model-invocation: true`, and subagent descriptions above 15000 tokens.
+
 **Other files**: misplaced files (`.claude.md`, `mcp.json`, flat skills), GitHub Actions workflows (permissions, credentials, unrestricted Bash), Anthropic API keys anywhere, attribution (assistant signatures).
 
 **rtk**: installation, hook present, permission routing.

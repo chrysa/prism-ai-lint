@@ -134,10 +134,12 @@ from prism_ai_lint._runtime import (
 )
 from prism_ai_lint.agent_contract import AgentContract
 from prism_ai_lint.agent_converter import ADAPTERS, AgentConverter
+from prism_ai_lint.claude_files_checker import ClaudeFilesChecker
 from prism_ai_lint.compression_checker import CompressionChecker
 from prism_ai_lint.config_flags import ConfigFlags
 from prism_ai_lint.content_validation import CriticalContentValidator as CriticalContentValidator
 from prism_ai_lint.desktop_checker import DesktopChecker
+from prism_ai_lint.env_checker import EnvChecker
 from prism_ai_lint.feedback_renderer import FeedbackRenderer
 from prism_ai_lint.finding import Finding
 from prism_ai_lint.guard_checker import BASH_WRITE_HINT as BASH_WRITE_HINT
@@ -149,7 +151,6 @@ from prism_ai_lint.instruction_checker import InstructionChecker
 from prism_ai_lint.issue_reporter import Anonymizer, IssueReporter, local_identity
 from prism_ai_lint.llmtrim_checker import LlmtrimChecker
 from prism_ai_lint.mcp_checker import McpChecker
-from prism_ai_lint.env_checker import EnvChecker
 from prism_ai_lint.mod_checker import ModChecker
 from prism_ai_lint.pdf_checker import PdfChecker
 from prism_ai_lint.plugin_registry import PluginRegistry
@@ -1469,6 +1470,7 @@ _SECRETS = InlineSecretScanner()
 _HOOKS = HookChecker(check_env_secrets=_SECRETS.check_env_secrets)
 _MODS = ModChecker()
 _ENV = EnvChecker()
+_CLAUDE_FILES = ClaudeFilesChecker()
 
 
 def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report) -> dict | None:
@@ -1734,6 +1736,14 @@ HINTS.update(
         "ENABLED_PLUGINS": (
             "enabledPlugins keys are 'plugin@marketplace' with boolean values.",
             DOCS + "settings-reference",
+        ),
+        "INSTR_DEAD_REF": (
+            "An instruction file that names a missing command or file sends the agent on a search; fix or remove the line.",
+            DOCS + "memory",
+        ),
+        "TOKEN_LISTING_BUDGET": (
+            "Skill and subagent descriptions are sent every turn; manual-only skills can drop out of that listing.",
+            DOCS + "skills",
         ),
         "ENV_WEAKENS_SECURITY": (
             "These variables switch off a safety prompt or protection of the shell tool or the managed environment.",
@@ -6195,6 +6205,7 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
     rep.proposals = compute_proposals(dup_roots, repos, policy)
     for r in repos:
         check_token_levers(r, policy, rep)
+        _CLAUDE_FILES.check_repo(r, rep)
         check_scopes(r, policy, rep)
     if getattr(args, "generate", False):
         if args.user or args.user_only:
