@@ -186,6 +186,8 @@ Tune generation in `.prism-ai-lint.toml` `[generate]` section: which skills/agen
 
 **Instruction files and listing** (report only): `INSTR_DEAD_REF` lists the `make`/`npm run` commands and repo-relative files that `CLAUDE.md`, `AGENTS.md` and `.claude/rules` name but that do not exist (a path is judged only when its first directory exists, a Makefile with `include` or a package without scripts is not judged). `TOKEN_LISTING_BUDGET` flags a skill listing above about 2000 tokens per turn, naming the biggest skills that could set `disable-model-invocation: true`, and subagent descriptions above 15000 tokens.
 
+**Prompt-engineering hooks** (`.claude/ape/ape_hook.py`, report only): `APE_UNWIRED` (script present, no `UserPromptSubmit` hook runs it), `APE_DEAD_WIRING` (hook runs a missing script), `APE_STDIN_RAW` (the script reads stdin as text, but the hook input is JSON, so its triage never matches and the whole spec is injected on every prompt), and `HOOK_BROAD_MATCH` (a `UserPromptSubmit` shell hook that tests the whole input for a `/word` substring and so fires on any prompt that mentions such a path).
+
 **Other files**: misplaced files (`.claude.md`, `mcp.json`, flat skills), GitHub Actions workflows (permissions, credentials, unrestricted Bash), Anthropic API keys anywhere, attribution (assistant signatures).
 
 **rtk**: installation, hook present, permission routing.

@@ -134,6 +134,7 @@ from prism_ai_lint._runtime import (
 )
 from prism_ai_lint.agent_contract import AgentContract
 from prism_ai_lint.agent_converter import ADAPTERS, AgentConverter
+from prism_ai_lint.ape_hook_checker import ApeHookChecker
 from prism_ai_lint.claude_files_checker import ClaudeFilesChecker
 from prism_ai_lint.compression_checker import CompressionChecker
 from prism_ai_lint.config_flags import ConfigFlags
@@ -1471,6 +1472,7 @@ _HOOKS = HookChecker(check_env_secrets=_SECRETS.check_env_secrets)
 _MODS = ModChecker()
 _ENV = EnvChecker()
 _CLAUDE_FILES = ClaudeFilesChecker()
+_APE_HOOK = ApeHookChecker()
 
 
 def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report) -> dict | None:
@@ -1736,6 +1738,22 @@ HINTS.update(
         "ENABLED_PLUGINS": (
             "enabledPlugins keys are 'plugin@marketplace' with boolean values.",
             DOCS + "settings-reference",
+        ),
+        "APE_UNWIRED": (
+            "A prompt-engineering hook script that no UserPromptSubmit hook runs does nothing; wire it or remove it.",
+            DOCS + "hooks",
+        ),
+        "APE_DEAD_WIRING": (
+            "The hook command is guarded by a file test, so a missing script is skipped silently and the layer is off.",
+            DOCS + "hooks",
+        ),
+        "APE_STDIN_RAW": (
+            "UserPromptSubmit hooks get JSON on stdin ({prompt, session_id, ...}); parse it and read the prompt field.",
+            DOCS + "hooks",
+        ),
+        "HOOK_BROAD_MATCH": (
+            "A substring test on the whole JSON input also fires on prompts that only mention the path; anchor it on the prompt start.",
+            DOCS + "hooks",
         ),
         "INSTR_DEAD_REF": (
             "An instruction file that names a missing command or file sends the agent on a search; fix or remove the line.",
@@ -6218,6 +6236,7 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
     for r in repos:
         check_token_levers(r, policy, rep)
         _CLAUDE_FILES.check_repo(r, rep)
+        _APE_HOOK.check_repo(r, rep)
         check_scopes(r, policy, rep)
     if getattr(args, "generate", False):
         if args.user or args.user_only:
@@ -6543,6 +6562,7 @@ CATEGORIES = [
     ("ENV_", "settings"),
     ("PERM_", "permissions"),
     ("HOOK_", "hooks"),
+    ("APE_", "hooks"),
     ("HELPER_", "hooks"),
     ("SKILL_", "skills"),
     ("COMMAND_", "skills"),

@@ -4,6 +4,13 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-037 · UserPromptSubmit hooks are checked for JSON input and anchored matching
+A hook that reads stdin as text never sees the prompt: Claude Code sends JSON. The prompt-engineering hook then injected its
+whole spec on every prompt (even `ok`), and an injection stays in the context for the rest of the session. `APE_*` and
+`HOOK_BROAD_MATCH` report this, plus a hook script with no wiring, wiring with no script, and a substring test that fires on
+any prompt mentioning a path. **Why:** the cost is silent and compounding. Report only: the fixer never edits a user's hook.
+**Reverse:** drop `_APE_HOOK.check_repo`.
+
 ## D-036 · Audit, report and force modes; mods, env switches and dead references are reports
 `--audit` runs read-only and exits 1 when changes are pending; `--report FILE` writes a Markdown report outside the scanned
 repos (with a per-repo table); `--force` regenerates what the tool generates (union for permissions, existing deny/ask rules,
