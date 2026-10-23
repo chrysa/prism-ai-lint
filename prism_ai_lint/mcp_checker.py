@@ -5,7 +5,6 @@ from __future__ import annotations
 import copy
 import json
 import os
-import re
 import shlex
 import shutil
 from pathlib import Path
@@ -17,24 +16,27 @@ from prism_ai_lint.secret_scan import InlineSecretScanner
 
 # Names the app reserves for its own servers; a user entry with one of them is not usable.
 RESERVED_SERVER_NAMES = frozenset({"workspace", "claude-in-chrome", "computer-use", "claude preview", "claude browser"})
-# Edge whitespace and zero-width or non-breaking spaces survive in command, url, args, env and headers.
-HIDDEN_EDGE = re.compile(r"^[\s\u200b\u200c\u200d\u2060\ufeff\u00a0]|[\s\u200b\u200c\u200d\u2060\ufeff\u00a0]$")
+# Zero-width characters survive str.strip(); ordinary and non-breaking whitespace does not.
+ZERO_WIDTH = frozenset("\u200b\u200c\u200d\u2060\ufeff")
+
+
+def _padded(value: object) -> bool:
+    """True for a string that starts or ends with whitespace or a zero-width character."""
+    return (
+        isinstance(value, str)
+        and bool(value)
+        and (value != value.strip() or value[0] in ZERO_WIDTH or value[-1] in ZERO_WIDTH)
+    )
 
 
 def hidden_whitespace(cfg: dict) -> list[str]:
     """Fields of a server entry whose string value starts or ends with whitespace or a hidden space."""
-    found = []
-    for key in ("command", "url"):
-        if isinstance(cfg.get(key), str) and HIDDEN_EDGE.search(cfg[key]):
-            found.append(key)
-    for i, a in enumerate(cfg.get("args") or []):
-        if isinstance(a, str) and HIDDEN_EDGE.search(a):
-            found.append(f"args[{i}]")
+    pairs = [(key, cfg.get(key)) for key in ("command", "url")]
+    pairs += [(f"args[{i}]", a) for i, a in enumerate(cfg.get("args") or [])]
     for sect in ("env", "headers"):
-        for k, v in (cfg.get(sect) or {}).items() if isinstance(cfg.get(sect), dict) else []:
-            if isinstance(v, str) and HIDDEN_EDGE.search(v):
-                found.append(f"{sect}.{k}")
-    return found
+        if isinstance(cfg.get(sect), dict):
+            pairs += [(f"{sect}.{k}", v) for k, v in cfg[sect].items()]
+    return [name for name, value in pairs if _padded(value)]
 
 
 class McpChecker:
