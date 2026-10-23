@@ -57,3 +57,19 @@ def test_hook_that_anchors_on_the_prompt_is_not_broad(tmp_path):
 
 def test_repo_without_claude_dir_is_quiet(tmp_path):
     assert _codes(tmp_path) == set()
+
+
+def test_user_settings_broad_match(tmp_path):
+    command = 'sh -c \'in=$(cat); case "$in" in *"/ape"*) cat spec.md;; esac\''
+    (tmp_path / "settings.json").write_text(
+        json.dumps({"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": command}]}]}})
+    )
+    rep = Report()
+    ApeHookChecker().check_user(tmp_path, rep)
+    assert {(f.level, f.code) for f in rep.findings} == {("info", "HOOK_BROAD_MATCH")}
+
+
+def test_user_settings_missing_is_quiet(tmp_path):
+    rep = Report()
+    ApeHookChecker().check_user(tmp_path, rep)
+    assert rep.findings == []

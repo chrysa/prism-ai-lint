@@ -63,6 +63,18 @@ class ApeHookChecker:
                 wired[0][0],
                 "a UserPromptSubmit hook runs .claude/ape/ape_hook.py, which is not in the repo",
             )
+        self._broad(commands, rep)
+
+    def check_user(self, config_dir: Path, rep: Report) -> None:
+        """The user-level settings file: only the over-broad match applies there."""
+        for name in SETTINGS:
+            path = config_dir / name
+            if path.is_file():
+                commands = [(path, c) for c in _prompt_commands(lenient_json(read_text(path) or "{}")[0])]
+                self._broad(commands, rep)
+
+    @staticmethod
+    def _broad(commands: list[tuple[Path, str]], rep: Report) -> None:
         for path, command in commands:
             if BROAD_CASE.search(command):
                 rep.add(

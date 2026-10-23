@@ -6223,6 +6223,7 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
     user_text = lint_user(policy, rep, repos) if (args.user or args.user_only) else None
     if args.user or args.user_only:
         run_plugin_checks("user", config_dir(), policy, rep)
+        _APE_HOOK.check_user(config_dir(), rep)
     check_rtk(policy, rep, repos, bool(args.user or args.user_only))
     check_llmtrim(rep, repos, bool(args.user or args.user_only))
     markers = tuple(policy["profile"]["standards_markers"])
