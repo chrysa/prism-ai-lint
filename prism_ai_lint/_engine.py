@@ -1737,6 +1737,18 @@ HINTS.update(
             "enabledPlugins keys are 'plugin@marketplace' with boolean values.",
             DOCS + "settings-reference",
         ),
+        "MCP_RESERVED_NAME": (
+            "The app reserves a few server names for itself; an entry with one of them can not be used.",
+            DOCS + "mcp",
+        ),
+        "MCP_WHITESPACE": (
+            "Whitespace or a zero-width space around a command, url, argument, env value or header is kept as typed and breaks the call.",
+            DOCS + "mcp",
+        ),
+        "AGENT_NAME_SKIPPED": (
+            "A subagent whose name starts with '-', contains ':' or is longer than 256 characters is skipped at load.",
+            DOCS + "sub-agents",
+        ),
         "INSTR_DEAD_REF": (
             "An instruction file that names a missing command or file sends the agent on a search; fix or remove the line.",
             DOCS + "memory",

@@ -186,6 +186,8 @@ Tune generation in `.prism-ai-lint.toml` `[generate]` section: which skills/agen
 
 **Instruction files and listing** (report only): `INSTR_DEAD_REF` lists the `make`/`npm run` commands and repo-relative files that `CLAUDE.md`, `AGENTS.md` and `.claude/rules` name but that do not exist (a path is judged only when its first directory exists, a Makefile with `include` or a package without scripts is not judged). `TOKEN_LISTING_BUDGET` flags a skill listing above about 2000 tokens per turn, naming the biggest skills that could set `disable-model-invocation: true`, and subagent descriptions above 15000 tokens.
 
+**MCP and subagent loading** (report only): `MCP_RESERVED_NAME` (a server named like one the app reserves), `MCP_WHITESPACE` (leading or trailing whitespace, or a zero-width space, in a command, url, argument, env value or header: it is not trimmed), `AGENT_NAME_SKIPPED` (a subagent name that starts with `-`, contains `:` or is over 256 characters is skipped at load).
+
 **Other files**: misplaced files (`.claude.md`, `mcp.json`, flat skills), GitHub Actions workflows (permissions, credentials, unrestricted Bash), Anthropic API keys anywhere, attribution (assistant signatures).
 
 **rtk**: installation, hook present, permission routing.

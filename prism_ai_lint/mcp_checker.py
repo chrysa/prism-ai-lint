@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import json
 import os
+import re
 import shlex
 import shutil
 from pathlib import Path
@@ -13,6 +14,27 @@ from prism_ai_lint._reference import SECRET_VALUE_PATTERNS
 from prism_ai_lint._runtime import config_dir, dump_json, lenient_json, log, read_text
 from prism_ai_lint.report import Report
 from prism_ai_lint.secret_scan import InlineSecretScanner
+
+# Names the app reserves for its own servers; a user entry with one of them is not usable.
+RESERVED_SERVER_NAMES = frozenset({"workspace", "claude-in-chrome", "computer-use", "claude preview", "claude browser"})
+# Edge whitespace and zero-width or non-breaking spaces survive in command, url, args, env and headers.
+HIDDEN_EDGE = re.compile(r"^[\s\u200b\u200c\u200d\u2060\ufeff\u00a0]|[\s\u200b\u200c\u200d\u2060\ufeff\u00a0]$")
+
+
+def hidden_whitespace(cfg: dict) -> list[str]:
+    """Fields of a server entry whose string value starts or ends with whitespace or a hidden space."""
+    found = []
+    for key in ("command", "url"):
+        if isinstance(cfg.get(key), str) and HIDDEN_EDGE.search(cfg[key]):
+            found.append(key)
+    for i, a in enumerate(cfg.get("args") or []):
+        if isinstance(a, str) and HIDDEN_EDGE.search(a):
+            found.append(f"args[{i}]")
+    for sect in ("env", "headers"):
+        for k, v in (cfg.get(sect) or {}).items() if isinstance(cfg.get(sect), dict) else []:
+            if isinstance(v, str) and HIDDEN_EDGE.search(v):
+                found.append(f"{sect}.{k}")
+    return found
 
 
 class McpChecker:
@@ -46,6 +68,15 @@ class McpChecker:
                 out[name] = cfg
                 continue
             cfg = dict(cfg)
+            if str(name).strip().lower() in RESERVED_SERVER_NAMES:
+                rep.add("warn", "MCP_RESERVED_NAME", path, f"{ctx}.{name}: reserved server name, rename the entry")
+            if padded := hidden_whitespace(cfg):
+                rep.add(
+                    "warn",
+                    "MCP_WHITESPACE",
+                    path,
+                    f"{ctx}.{name}: leading or trailing whitespace in {', '.join(padded[:4])}; it is not trimmed",
+                )
             kind = cfg.get("type") or ("http" if cfg.get("url") else "stdio")
             log(
                 2,
