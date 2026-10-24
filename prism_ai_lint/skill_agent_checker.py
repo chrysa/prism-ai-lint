@@ -27,6 +27,8 @@ from prism_ai_lint._runtime import _writable, log, read_text
 from prism_ai_lint.instruction_checker import InstructionChecker
 from prism_ai_lint.report import Report
 
+AGENT_NAME_MAX = 256  # longer names are skipped at load
+
 
 class SkillAgentChecker:
     """Check skill and subagent definitions; records findings and safe repairs, never writes."""
@@ -291,6 +293,15 @@ class SkillAgentChecker:
         for k in meta:
             if k not in AGENT_FIELDS:
                 rep.agent_unknown.setdefault(k, []).append(f)
+        agent_name = str(meta.get("name") or "")
+        if agent_name.startswith("-") or ":" in agent_name or len(agent_name) > AGENT_NAME_MAX:
+            rep.add(
+                "warn",
+                "AGENT_NAME_SKIPPED",
+                f,
+                f"name {agent_name[:40]!r} is skipped at load: it starts with '-', contains ':' or is over "
+                f"{AGENT_NAME_MAX} characters",
+            )
         updates = {}
         if not meta.get("name"):
             updates["name"] = slugify(f.stem)

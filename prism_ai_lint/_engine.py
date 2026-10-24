@@ -1739,6 +1739,18 @@ HINTS.update(
             "enabledPlugins keys are 'plugin@marketplace' with boolean values.",
             DOCS + "settings-reference",
         ),
+        "MCP_RESERVED_NAME": (
+            "The app reserves a few server names for itself; an entry with one of them can not be used.",
+            DOCS + "mcp",
+        ),
+        "MCP_WHITESPACE": (
+            "Whitespace or a zero-width space around a command, url, argument, env value or header is kept as typed and breaks the call.",
+            DOCS + "mcp",
+        ),
+        "AGENT_NAME_SKIPPED": (
+            "A subagent whose name starts with '-', contains ':' or is longer than 256 characters is skipped at load.",
+            DOCS + "sub-agents",
+        ),
         "APE_UNWIRED": (
             "A prompt-engineering hook script that no UserPromptSubmit hook runs does nothing; wire it or remove it.",
             DOCS + "hooks",

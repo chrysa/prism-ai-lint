@@ -14,6 +14,30 @@ from prism_ai_lint._runtime import config_dir, dump_json, lenient_json, log, rea
 from prism_ai_lint.report import Report
 from prism_ai_lint.secret_scan import InlineSecretScanner
 
+# Names the app reserves for its own servers; a user entry with one of them is not usable.
+RESERVED_SERVER_NAMES = frozenset({"workspace", "claude-in-chrome", "computer-use", "claude preview", "claude browser"})
+# Zero-width characters survive str.strip(); ordinary and non-breaking whitespace does not.
+ZERO_WIDTH = frozenset("\u200b\u200c\u200d\u2060\ufeff")
+
+
+def _padded(value: object) -> bool:
+    """True for a string that starts or ends with whitespace or a zero-width character."""
+    return (
+        isinstance(value, str)
+        and bool(value)
+        and (value != value.strip() or value[0] in ZERO_WIDTH or value[-1] in ZERO_WIDTH)
+    )
+
+
+def hidden_whitespace(cfg: dict) -> list[str]:
+    """Fields of a server entry whose string value starts or ends with whitespace or a hidden space."""
+    pairs = [(key, cfg.get(key)) for key in ("command", "url")]
+    pairs += [(f"args[{i}]", a) for i, a in enumerate(cfg.get("args") or [])]
+    for sect in ("env", "headers"):
+        if isinstance(cfg.get(sect), dict):
+            pairs += [(f"{sect}.{k}", v) for k, v in cfg[sect].items()]
+    return [name for name, value in pairs if _padded(value)]
+
 
 class McpChecker:
     """Validate MCP server definitions and repair what is safe; records findings, never writes."""
@@ -46,6 +70,15 @@ class McpChecker:
                 out[name] = cfg
                 continue
             cfg = dict(cfg)
+            if str(name).strip().lower() in RESERVED_SERVER_NAMES:
+                rep.add("warn", "MCP_RESERVED_NAME", path, f"{ctx}.{name}: reserved server name, rename the entry")
+            if padded := hidden_whitespace(cfg):
+                rep.add(
+                    "warn",
+                    "MCP_WHITESPACE",
+                    path,
+                    f"{ctx}.{name}: leading or trailing whitespace in {', '.join(padded[:4])}; it is not trimmed",
+                )
             kind = cfg.get("type") or ("http" if cfg.get("url") else "stdio")
             log(
                 2,
