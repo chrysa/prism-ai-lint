@@ -188,6 +188,8 @@ Tune generation in `.prism-ai-lint.toml` `[generate]` section: which skills/agen
 
 **MCP and subagent loading** (report only): `MCP_RESERVED_NAME` (a server named like one the app reserves), `MCP_WHITESPACE` (leading or trailing whitespace, or a zero-width space, in a command, url, argument, env value or header: it is not trimmed), `AGENT_NAME_SKIPPED` (a subagent name that starts with `-`, contains `:` or is over 256 characters is skipped at load).
 
+**Prompt-engineering hooks** (`.claude/ape/ape_hook.py`, report only): `APE_UNWIRED` (script present, no `UserPromptSubmit` hook runs it), `APE_DEAD_WIRING` (hook runs a missing script), `APE_STDIN_RAW` (the script reads stdin as text, but the hook input is JSON, so its triage never matches and the whole spec is injected on every prompt), and `HOOK_BROAD_MATCH` (a `UserPromptSubmit` shell hook that tests the whole input for a `/word` substring and so fires on any prompt that mentions such a path).
+
 **Other files**: misplaced files (`.claude.md`, `mcp.json`, flat skills), GitHub Actions workflows (permissions, credentials, unrestricted Bash), Anthropic API keys anywhere, attribution (assistant signatures).
 
 **rtk**: installation, hook present, permission routing.
