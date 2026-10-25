@@ -54,7 +54,7 @@ section is cheap and prevents over-building; a long copy of an external guidelin
 `[restructure] keep_in_instructions` (non-negotiable, must, never, rules, conventions, security...). **Why:** a
 "Non-negotiable conventions" section moved to a skill is loaded only when the model decides to read it;
 rules must stay always-loaded, procedures may not. A plain word list, not a regex: the policy is untrusted.
-||||||| parent of c22a781 (feat: generate deny-reads and external-action asks only for the toolchains the project uses)
+
 ## D-030 · Generated settings default to the cheapest model and effort
 `--generate` writes `model = "haiku"` and `effortLevel = "low"` into a project's settings when
 absent (`[generate] default_model`, `default_effort`; `""` disables). **Why:** the tool ranks work by
