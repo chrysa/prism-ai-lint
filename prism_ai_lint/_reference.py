@@ -440,6 +440,8 @@ ATTRIBUTION_PATTERNS = [  # written so this source file never matches itself
     re.compile(r"Co-Authored-By:\s*Claude", re.I),
     re.compile(r"Generated with \[?Claude Code", re.I),
     re.compile(r"noreply@anthropic\.com", re.I),
+    # Session-link trailer: a link back to the assistant session that wrote the commit.
+    re.compile(r"^Claude-Session:\s*https?://", re.I | re.M),
 ]
 # A line that forbids attribution ("NEVER add Co-Authored-By...", "strip the
 # Generated-with line") is documentation, not a trace: don't flag it.
@@ -488,6 +490,7 @@ COMMIT_MSG_HOOK = """#!/usr/bin/env sh
 sed -i -E \\
   -e '/^Co-Authored-By:.*(claude|anthropic)/Id' \\
   -e '/Generated with \\[?Claude Code/Id' \\
+  -e '/^Claude-Session:/Id' \\
   "$1"
 sed -i -e :a -e '/^\\n*$/{$d;N;ba' -e '}' "$1"
 """
