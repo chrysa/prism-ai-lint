@@ -4,6 +4,12 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-038 · Session-link trailers are assistant attribution
+A `Claude-Session:` trailer linking the commit to the assistant session that wrote it is attribution, like
+`Co-Authored-By`. It is matched in files and history (`ATTR_TRACE` / `ATTR_HISTORY`), the generated commit-msg hook strips
+it, and a hook that strips it counts as the guard. **Why:** owner decision (2026-10-25); the link discloses the tool as
+surely as a co-author line. **Reverse:** drop the pattern and the hook's `sed` expression.
+
 ## D-037 · UserPromptSubmit hooks are checked for JSON input and anchored matching
 A hook that reads stdin as text never sees the prompt: Claude Code sends JSON. The prompt-engineering hook then injected its
 whole spec on every prompt (even `ok`), and an injection stays in the context for the rest of the session. `APE_*` and

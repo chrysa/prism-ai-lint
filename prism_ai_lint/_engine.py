@@ -5843,10 +5843,11 @@ def check_attribution(repo: Path, policy: dict, rep: Report, history: bool) -> N
     precommit = read_text(repo / ".pre-commit-config.yaml") or ""
     hook_text = (read_text(hook) or "") if hook.is_file() else ""
     # Recognise the guard by what it does, not by which tool wrote it: any hook that
-    # strips a Co-Authored-By / Generated-with trailer counts (covers hooks installed
-    # under this tool's former name too).
+    # strips a Co-Authored-By / Generated-with / Claude-Session trailer counts (covers
+    # hooks installed under this tool's former name too).
     strips = bool(hook_text) and (
-        HOOK_SIGNATURE in hook_text or re.search(r"[Cc]o-[Aa]uthored-[Bb]y|[Gg]enerated with|attribution", hook_text)
+        HOOK_SIGNATURE in hook_text
+        or re.search(r"[Cc]o-[Aa]uthored-[Bb]y|[Gg]enerated with|[Cc]laude-[Ss]ession|attribution", hook_text)
     )
     guarded = strips or ("commit-msg" in precommit and "attribution" in precommit.lower())
     if guarded:
