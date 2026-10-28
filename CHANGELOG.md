@@ -1,6 +1,13 @@
 # Changelog
 
-All notable changes to `ai-lint`. Dates are ISO 8601.
+All notable changes to `prism-ai-lint`. Dates are ISO 8601.
+
+## 2026-10-28 — license
+
+### Changed
+- Licensed under Apache-2.0: `LICENSE` and `NOTICE` added; package metadata
+  uses the SPDX expression (`license = "Apache-2.0"`, PEP 639). The previous
+  `MIT` text in `pyproject.toml` had no license file behind it.
 
 ## 2026-09-30 — modular review and portability
 
