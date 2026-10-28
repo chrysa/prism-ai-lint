@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68", "setuptools-scm>=8"]
+requires = ["setuptools>=77", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -7,7 +7,8 @@ name = "prism-ai-lint"
 dynamic = ["version"]  # computed from the git tag by setuptools-scm, never typed
 description = "Cut the tokens AI coding agents burn on every request: lint, repair and guard their configuration."
 readme = "README.md"
-license = {text = "MIT"}
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
 authors = [{name = "chrysa", email = "dev@chrysa.dev"}]
 keywords = ["claude", "ai-agent", "linter", "security", "configuration"]
 requires-python = ">=3.13"
@@ -21,7 +22,6 @@ Changelog = "https://github.com/chrysa/prism-ai-lint/releases"
 
 [project.scripts]
 prism-ai-lint = "prism_ai_lint._engine:main"
-ai-lint = "prism_ai_lint._engine:main"  # former name, kept during the transition
 
 [project.optional-dependencies]
 # Only needed for the editable catalog (--print-catalog / --catalog). The linter
