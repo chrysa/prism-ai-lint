@@ -22,7 +22,6 @@ Changelog = "https://github.com/chrysa/prism-ai-lint/releases"
 
 [project.scripts]
 prism-ai-lint = "prism_ai_lint._engine:main"
-ai-lint = "prism_ai_lint._engine:main"  # former name, kept during the transition
 
 [project.optional-dependencies]
 # Only needed for the editable catalog (--print-catalog / --catalog). The linter

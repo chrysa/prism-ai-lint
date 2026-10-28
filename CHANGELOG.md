@@ -2,7 +2,12 @@
 
 All notable changes to `prism-ai-lint`. Dates are ISO 8601.
 
-## 2026-10-28 — license
+## 2026-10-28 — license and command name
+
+### Removed
+- The `ai-lint` command alias and the `ai-lint` pre-commit hook id, kept during
+  the rename: use `prism-ai-lint` (command and hook id). `ai-lint` is an
+  unrelated package on PyPI, so the alias would clash once published.
 
 ### Changed
 - Licensed under Apache-2.0: `LICENSE` and `NOTICE` added; package metadata
