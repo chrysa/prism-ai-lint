@@ -5,12 +5,15 @@ name: Release
 # never typed), then tag the commit and cut a GitHub release. One commit on main
 # = one release. No-op when there is nothing
 # new to release (git-cliff yields the same version).
+#
+# A new release is then built once and published from the same workflow: a
+# release created with github.token does not trigger other workflows.
+# TestPyPI -> PyPI (Trusted Publishing, no token) -> Docker Hub image.
 on:
   push:
     branches: [main]
 
-permissions:
-  contents: write  # create tags and releases
+permissions: {}
 
 concurrency:
   group: release-${{ github.ref }}
@@ -19,8 +22,11 @@ concurrency:
 jobs:
   release:
     runs-on: ubuntu-latest
-    env:
-      PYPI_API_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+    permissions:
+      contents: write  # create tags and releases
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
@@ -63,15 +69,101 @@ jobs:
           echo "released=true" >> "$GITHUB_OUTPUT"
         id: release
 
-      # PyPI publication is opt-in: it runs only once the PYPI_API_TOKEN secret exists.
-      - name: Build the distribution (version from the new tag)
-        if: steps.release.outputs.released == 'true' && env.PYPI_API_TOKEN != ''
-        run: |
-          python -m pip install --only-binary :all: "build==1.6.1"
-          python -m build
-
-      - name: Publish to PyPI
-        if: steps.release.outputs.released == 'true' && env.PYPI_API_TOKEN != ''
-        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+  build:
+    needs: release
+    if: needs.release.outputs.released == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          ref: ${{ needs.release.outputs.tag }}
+          fetch-depth: 0  # setuptools-scm reads the version from the tag
+
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Build and check the distribution
+        run: |
+          python -m pip install --only-binary :all: "build==1.6.1" twine
+          python -m build
+          python -m twine check --strict dist/*
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  publish-testpypi:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/prism-ai-lint
+    permissions:
+      id-token: write  # Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+  publish-pypi:
+    needs: publish-testpypi
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/prism-ai-lint
+    permissions:
+      id-token: write  # Trusted Publishing
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+
+  docker:
+    needs: [release, publish-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dist
+          path: dist/
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ vars.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Image tags
+        id: tags
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        run: echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          platforms: linux/amd64
+          push: true
+          tags: |
+            docker.io/chrysa/prism-ai-lint:${{ steps.tags.outputs.version }}
+            docker.io/chrysa/prism-ai-lint:latest

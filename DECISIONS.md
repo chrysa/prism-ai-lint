@@ -4,6 +4,18 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-039 · Published with Trusted Publishing to PyPI and as a Docker Hub image
+A release on `main` is built once and published from the same workflow: TestPyPI, then PyPI
+through Trusted Publishing (OIDC, no stored token), then the image `docker.io/chrysa/prism-ai-lint`
+(`<version>` and `latest`) built from that wheel. **Why:** owner decision (2026-10-28): open-source
+tools ship through PyPI and a public Docker Hub image; GHCR stays for internal images. A release
+created with `github.token` does not start other workflows, hence one workflow. Licensed
+Apache-2.0 and the `ai-lint` aliases of D-028 dropped in v2.0.0, so the published package does not
+clash with the unrelated `ai-lint`. **How to apply:** the PyPI and TestPyPI projects trust
+`release.yml` with the environments `pypi` and `testpypi`; Docker Hub uses the repository variable
+`DOCKERHUB_USERNAME` and secret `DOCKERHUB_TOKEN`. Supersedes the `PYPI_API_TOKEN` path of D-020
+and D-028. **Reverse:** remove the publish jobs; published versions can only be yanked.
+
 ## D-038 · Session-link trailers are assistant attribution
 A `Claude-Session:` trailer linking the commit to the assistant session that wrote it is attribution, like
 `Co-Authored-By`. It is matched in files and history (`ATTR_TRACE` / `ATTR_HISTORY`), the generated commit-msg hook strips
