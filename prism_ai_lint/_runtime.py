@@ -59,13 +59,18 @@ def log(level: int, msg: str, indent: int = 0) -> None:
 
 
 MAX_READ_BYTES = 5_000_000  # a config or instruction file is never this large; bigger is skipped
+SKIPPED_READS: dict[str, str] = {}  # path -> reason; reported as FILE_NOT_SCANNED so a skip is never silent
 
 
 def read_text(p: Path) -> str | None:
     try:
         st = p.stat()
         # Only regular files: a symlink to a device or a FIFO would block or flood the read.
-        if not stat.S_ISREG(st.st_mode) or st.st_size > MAX_READ_BYTES:
+        if not stat.S_ISREG(st.st_mode):
+            SKIPPED_READS[str(p)] = "not a regular file (device, pipe or socket)"
+            return None
+        if st.st_size > MAX_READ_BYTES:
+            SKIPPED_READS[str(p)] = f"larger than {MAX_READ_BYTES} bytes"
             return None
         key = (str(p), st.st_mtime_ns, st.st_size)
     except OSError:

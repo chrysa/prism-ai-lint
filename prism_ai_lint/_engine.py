@@ -118,6 +118,7 @@ from prism_ai_lint._reference import (
     safe_model,
 )
 from prism_ai_lint._runtime import (
+    SKIPPED_READS,
     _loc,
     _writable,
     add_gitignore,
@@ -1823,6 +1824,10 @@ HINTS.update(
         "HEADLESS_NO_PERMISSION_MODE": (
             "A headless run has nobody to answer a prompt; set a permission mode or allow rules so it does not stall.",
             DOCS + "headless",
+        ),
+        "FILE_NOT_SCANNED": (
+            "A file that is not a regular file or is far larger than any config is skipped, not treated as clean; review it by hand.",
+            DOCS + "settings",
         ),
         "ENV_WEAKENS_SECURITY": (
             "These variables switch off a safety prompt or protection of the shell tool or the managed environment.",
@@ -6280,6 +6285,7 @@ def discover_repos(root: Path, max_depth: int = 3) -> list[Path]:
 
 
 def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history: bool, phase: str = "scan") -> Report:
+    SKIPPED_READS.clear()
     log(1, f"{phase}: starting across {len(repos)} repositories")
     rep = Report()
     user_text = lint_user(policy, rep, repos) if (args.user or args.user_only) else None
@@ -6318,6 +6324,8 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
     check_portfolio(repos, policy, rep)
     progress(len(repos), len(repos), "done", phase)
     log(1, f"{phase}: completed")
+    for skipped, why in sorted(SKIPPED_READS.items()):
+        rep.add("warn", "FILE_NOT_SCANNED", skipped, f"not read ({why}), so it was not checked")
     if isinstance(rep.budget, dict):
         rep.budget["potential"] = sum(_finding_gain(f) for f in rep.findings) + sum(p["gain"] for p in rep.proposals)
     return rep
