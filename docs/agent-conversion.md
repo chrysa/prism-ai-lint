@@ -38,6 +38,19 @@ python3 prism-ai-lint.py . --convert-from claude --convert-to codex \
 | Codex | `AGENTS.override.md` when present, otherwise `AGENTS.md` | `AGENTS.md` |
 | Neutral AGENTS | `AGENTS.md` | `AGENTS.md` |
 
+## Product surface names
+
+Each product surface reads the same project file as its family, so a surface name is accepted
+wherever `claude`, `codex` or `agents` is, and is mapped to that adapter:
+
+| Name | Adapter | Why |
+| --- | --- | --- |
+| `claude-code`, `claude-code-cli` | `claude` | CLI, IDE and desktop extensions and the GitHub action read `CLAUDE.md` and `.claude/rules` |
+| `codex-cli`, `codex-ide`, `codex-cloud`, `chatgpt` | `codex` | the Codex CLI, IDE, cloud agent and Codex in ChatGPT read `AGENTS.md` (and `AGENTS.override.md`) |
+
+ChatGPT itself keeps custom instructions and projects outside the repository, so there is no
+other file to map; only the Codex side of it reads project files.
+
 Without `--convert-from`, conversion to Claude uses neutral AGENTS; conversion
 to Codex/AGENTS uses Claude. Specify the source explicitly when Codex overrides
 must be honored. These adapters describe a project document mapping, not a full

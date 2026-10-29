@@ -133,7 +133,7 @@ from prism_ai_lint._runtime import (
     state,
 )
 from prism_ai_lint.agent_contract import AgentContract
-from prism_ai_lint.agent_converter import ADAPTERS, AgentConverter
+from prism_ai_lint.agent_converter import ADAPTERS, ECOSYSTEMS, AgentConverter, canonical
 from prism_ai_lint.ape_hook_checker import ApeHookChecker
 from prism_ai_lint.claude_files_checker import ClaudeFilesChecker
 from prism_ai_lint.compression_checker import CompressionChecker
@@ -7230,10 +7230,10 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--user-only", action="store_true", help="check user scope only")
     ap.add_argument(
         "--convert-to",
-        choices=("claude", "codex", "agents"),
+        choices=ECOSYSTEMS,
         help="preview an agent contract conversion; never writes files",
     )
-    ap.add_argument("--convert-from", choices=("claude", "codex", "agents"), help="source ecosystem for --convert-to")
+    ap.add_argument("--convert-from", choices=ECOSYSTEMS, help="source ecosystem for --convert-to")
     ap.add_argument(
         "--apply-conversion",
         action="store_true",
@@ -7409,6 +7409,7 @@ def main(argv: list[str] | None = None) -> int:
         args.no_update_check = True
     if args.convert_from and not args.convert_to:
         ap.error("--convert-from requires --convert-to")
+    args.convert_to, args.convert_from = canonical(args.convert_to), canonical(args.convert_from)
     if args.convert_to:
         if args.fix or args.generate or args.user or args.user_only or args.guard or args.restore is not None:
             ap.error("conversion preview cannot be combined with writing or user/guard/restore modes")
