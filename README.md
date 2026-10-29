@@ -191,6 +191,8 @@ Tune generation in `.prism-ai-lint.toml` `[generate]` section: which skills/agen
 
 **Permission rules, marketplaces, other tools and headless CI** (all report only): `TASK_RULE_UNKNOWN_AGENT` (a `Task(Name)` rule targets a subagent not defined here, so it acts on nothing), `PLUGIN_SOURCE_UNPINNED` (a marketplace fetched from a moving branch), `CODEX_SANDBOX_OPEN` / `CODEX_APPROVAL_NEVER` (`.codex/config.toml`), `GEMINI_AUTO_APPROVE` / `GEMINI_TRUST_OFF` / `GEMINI_HOOKS_ON` (`.gemini/settings.json`), `CURSOR_RULE_NO_FRONTMATTER` / `CURSOR_RULE_ALWAYS_LARGE` (`.cursor/rules/*.mdc`), and `HEADLESS_SKIP_PERMISSIONS` / `HEADLESS_NO_PERMISSION_MODE` (a workflow runs `claude -p` with every check off, or with no permission mode or allow rule).
 
+**Per product surface** (all report only; a literal credential is located, never echoed): `VSCODE_CLAUDE_BYPASS` (the Claude Code extension starts with permission checks off, from `.vscode/settings.json`), `CLAUDE_ACTION_UNPINNED` (`anthropics/claude-code-action` or `openai/codex-action` on a moving tag), `CLAUDE_ACTION_OPEN_USERS` (`allowed_non_write_users: *`), `AGENT_CLI_UNPINNED` (`@anthropic-ai/claude-code` or `@openai/codex` installed from `latest`, or with no version, in `package.json`, a Dockerfile, a devcontainer, a Makefile or a workflow), `CODEX_TRUST_BROAD` (`trust_level = trusted` on `/` or a home directory) and `CODEX_MCP_LITERAL_SECRET` (a literal token in a Codex MCP server). `HEADLESS_SKIP_PERMISSIONS` also covers the action.
+
 **Other files**: misplaced files (`.claude.md`, `mcp.json`, flat skills), GitHub Actions workflows (permissions, credentials, unrestricted Bash), Anthropic API keys anywhere, attribution (assistant signatures).
 
 **rtk**: installation, hook present, permission routing.
