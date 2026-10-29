@@ -46,3 +46,33 @@ def test_report_add_neutralises_escapes_in_message_and_path():
     finding = rep.findings[0]
     assert "\x1b" not in finding.message and "\x1b" not in finding.path
     assert "\x07" not in finding.path
+
+
+def test_a_skipped_read_is_recorded_so_it_can_be_reported(tmp_path, monkeypatch):
+    monkeypatch.setattr(_runtime, "MAX_READ_BYTES", 10)
+    _runtime.SKIPPED_READS.clear()
+    big = tmp_path / "big.json"
+    big.write_text("x" * 11, encoding="utf-8")
+    fifo = tmp_path / "pipe.json"
+    os.mkfifo(fifo)
+    _runtime.read_text(big)
+    _runtime.read_text(fifo)
+    assert set(_runtime.SKIPPED_READS) == {str(big), str(fifo)}
+    _runtime.SKIPPED_READS.clear()
+
+
+def test_run_reports_an_oversized_settings_file(tmp_path, monkeypatch):
+    import subprocess
+    import sys
+
+    root = Path(__file__).resolve().parents[1]
+    (tmp_path / ".claude").mkdir()
+    # Valid JSON well past the 5 MB cap: a real settings file the scan would otherwise skip in silence.
+    (tmp_path / ".claude" / "settings.json").write_text('{"x": "' + "a" * 5_100_000 + '"}', encoding="utf-8")
+    result = subprocess.run(
+        [sys.executable, str(root / "prism-ai-lint.py"), str(tmp_path), "--format", "json"],
+        capture_output=True,
+        text=True,
+        timeout=120,
+    )
+    assert "FILE_NOT_SCANNED" in result.stdout, result.stderr[-400:]
