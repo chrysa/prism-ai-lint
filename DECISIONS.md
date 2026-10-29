@@ -334,5 +334,9 @@ This is non-negotiable — see [docs/FIXER_POLICY.md](docs/FIXER_POLICY.md) and
 ## Open questions
 - Publication (PyPI package / GitHub Action / Docker image) vs repo-local: currently
   repo-local (clone + run; `make docker-test` only for CI). Revisit if external adoption grows.
-- Cursor `.cursor/rules/*.mdc` directory form (only the legacy `.cursorrules` file is
-  checked today).
+- Cursor `.cursor/rules/*.mdc` frontmatter and size are checked (`CURSOR_*`); whether the
+  other Cursor files need checks is open.
+- The docs snapshot in `_reference.py` is dated 2026-09. The October 2026 changes (headless
+  default permission mode, `Task(Name)` rules) come from the public changelog and third-party
+  roundups: refresh the snapshot from the official settings page, with the date, before
+  treating `HEADLESS_NO_PERMISSION_MODE` as more than a hint.
