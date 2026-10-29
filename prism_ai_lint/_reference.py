@@ -1,4 +1,4 @@
-"""Reference data: docs snapshot (2026-09), attribution patterns and scaffold templates.
+"""Reference data: docs snapshot (2026-10), attribution patterns and scaffold templates.
 
 Pure data plus one predicate, no engine imports. Sets are extended in place by
 `load_policy` / `load_catalog`, so every module shares the same objects."""
@@ -6,6 +6,13 @@ Pure data plus one predicate, no engine imports. Sets are extended in place by
 from __future__ import annotations
 
 import re
+
+# Date the sets below were last checked against the official Claude Code pages (settings, hooks,
+# sub-agents, skills). Change it only together with a read of those pages.
+DOCS_SNAPSHOT = "2026-10"
+
+# Settings keys the docs list as removed: still accepted by the parser, but they do nothing.
+REMOVED_SETTINGS_KEYS = {"teammateDefaultModel": "removed in Claude Code v2.1.234"}
 
 KNOWN_SETTINGS_KEYS = {
     "$schema",
@@ -35,6 +42,7 @@ KNOWN_SETTINGS_KEYS = {
     "defaultShell",
     "deniedMcpServers",
     "allowedMcpServers",
+    "dialogExpiry",
     "disableAllHooks",
     "disableArtifact",
     "disableBundledSkills",
