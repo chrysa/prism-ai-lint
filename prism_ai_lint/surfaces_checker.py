@@ -52,7 +52,11 @@ class SurfacesChecker:
     @staticmethod
     def _workflows(repo: Path) -> list[Path]:
         folder = repo / ".github" / "workflows"
-        return [p for p in sorted(folder.glob("*")) if p.suffix in (".yml", ".yaml")] if folder.is_dir() else []
+        return (
+            [p for p in sorted(folder.glob("*")) if p.suffix in (".yml", ".yaml") and p.is_file()]
+            if folder.is_dir()
+            else []
+        )
 
     @classmethod
     def _install_files(cls, repo: Path) -> list[Path]:
