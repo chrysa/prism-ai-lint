@@ -118,6 +118,7 @@ from prism_ai_lint._reference import (
     safe_model,
 )
 from prism_ai_lint._runtime import (
+    SKIPPED_READS,
     _loc,
     _writable,
     add_gitignore,
@@ -153,7 +154,9 @@ from prism_ai_lint.issue_reporter import Anonymizer, IssueReporter, local_identi
 from prism_ai_lint.llmtrim_checker import LlmtrimChecker
 from prism_ai_lint.mcp_checker import McpChecker
 from prism_ai_lint.mod_checker import ModChecker
+from prism_ai_lint.other_tools_checker import OtherToolsChecker
 from prism_ai_lint.pdf_checker import PdfChecker
+from prism_ai_lint.permission_rules_checker import PermissionRulesChecker
 from prism_ai_lint.plugin_registry import PluginRegistry
 from prism_ai_lint.portfolio_checker import PortfolioChecker
 from prism_ai_lint.project_profile import ProjectProfiler
@@ -1471,6 +1474,8 @@ _SECRETS = InlineSecretScanner()
 _HOOKS = HookChecker(check_env_secrets=_SECRETS.check_env_secrets)
 _MODS = ModChecker()
 _ENV = EnvChecker()
+_PERMISSION_RULES = PermissionRulesChecker()
+_OTHER_TOOLS = OtherToolsChecker()
 _CLAUDE_FILES = ClaudeFilesChecker()
 _APE_HOOK = ApeHookChecker()
 
@@ -1603,6 +1608,7 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
     new = move_settings_mcp(new, base, path, rep, scope)
 
     _ENV.check(new, path, rep)
+    _PERMISSION_RULES.check(new, path, rep, base)
     if isinstance(new.get("env"), dict):
         new["env"] = _SECRETS.check_env_secrets(new["env"], path, rep, "env", "remove")
         if not new["env"] and data.get("env"):
@@ -1774,6 +1780,54 @@ HINTS.update(
         "TOKEN_LISTING_BUDGET": (
             "Skill and subagent descriptions are sent every turn; manual-only skills can drop out of that listing.",
             DOCS + "skills",
+        ),
+        "TASK_RULE_UNKNOWN_AGENT": (
+            "A Task(Name) permission rule only acts on a subagent of that name; with no such agent it protects or allows nothing.",
+            DOCS + "sub-agents",
+        ),
+        "PLUGIN_SOURCE_UNPINNED": (
+            "A marketplace fetched from a moving branch can change what runs in the session; pin a tag or a commit.",
+            DOCS + "plugin-marketplaces",
+        ),
+        "CODEX_SANDBOX_OPEN": (
+            "danger-full-access removes the Codex sandbox; keep workspace-write unless the machine is already isolated.",
+            "https://developers.openai.com/codex/security",
+        ),
+        "CODEX_APPROVAL_NEVER": (
+            "approval_policy never runs every command unasked; combine it only with a restrictive sandbox.",
+            "https://developers.openai.com/codex/security",
+        ),
+        "GEMINI_AUTO_APPROVE": (
+            "Auto-approving tool calls removes the confirmation step; keep it to disposable environments.",
+            "https://geminicli.com/docs/",
+        ),
+        "GEMINI_TRUST_OFF": (
+            "With folder trust off, a cloned repository can load project settings, extensions and hooks unreviewed.",
+            "https://geminicli.com/docs/",
+        ),
+        "GEMINI_HOOKS_ON": (
+            "Hooks are experimental and run commands on events; review each hook of a project or extension.",
+            "https://geminicli.com/docs/hooks/",
+        ),
+        "CURSOR_RULE_NO_FRONTMATTER": (
+            "A .mdc rule needs frontmatter (description, globs or alwaysApply) to be picked up as intended.",
+            "https://docs.cursor.com/context/rules",
+        ),
+        "CURSOR_RULE_ALWAYS_LARGE": (
+            "An always-applied rule is part of every request; a large one costs tokens each time.",
+            "https://docs.cursor.com/context/rules",
+        ),
+        "HEADLESS_SKIP_PERMISSIONS": (
+            "Skipping every permission check in CI lets a prompt injection run any command with the job's secrets.",
+            DOCS + "headless",
+        ),
+        "HEADLESS_NO_PERMISSION_MODE": (
+            "A headless run has nobody to answer a prompt; set a permission mode or allow rules so it does not stall.",
+            DOCS + "headless",
+        ),
+        "FILE_NOT_SCANNED": (
+            "A file that is not a regular file or is far larger than any config is skipped, not treated as clean; review it by hand.",
+            DOCS + "settings",
         ),
         "ENV_WEAKENS_SECURITY": (
             "These variables switch off a safety prompt or protection of the shell tool or the managed environment.",
@@ -6231,6 +6285,7 @@ def discover_repos(root: Path, max_depth: int = 3) -> list[Path]:
 
 
 def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history: bool, phase: str = "scan") -> Report:
+    SKIPPED_READS.clear()
     log(1, f"{phase}: starting across {len(repos)} repositories")
     rep = Report()
     user_text = lint_user(policy, rep, repos) if (args.user or args.user_only) else None
@@ -6251,6 +6306,7 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
         check_token_levers(r, policy, rep)
         _CLAUDE_FILES.check_repo(r, rep)
         _APE_HOOK.check_repo(r, rep)
+        _OTHER_TOOLS.check_repo(r, rep)
         check_scopes(r, policy, rep)
     if getattr(args, "generate", False):
         if args.user or args.user_only:
@@ -6268,6 +6324,8 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
     check_portfolio(repos, policy, rep)
     progress(len(repos), len(repos), "done", phase)
     log(1, f"{phase}: completed")
+    for skipped, why in sorted(SKIPPED_READS.items()):
+        rep.add("warn", "FILE_NOT_SCANNED", skipped, f"not read ({why}), so it was not checked")
     if isinstance(rep.budget, dict):
         rep.budget["potential"] = sum(_finding_gain(f) for f in rep.findings) + sum(p["gain"] for p in rep.proposals)
     return rep

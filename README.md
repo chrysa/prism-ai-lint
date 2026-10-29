@@ -189,6 +189,10 @@ Tune generation in `.prism-ai-lint.toml` `[generate]` section: which skills/agen
 
 **Prompt-engineering hooks** (`.claude/ape/ape_hook.py`, report only): `APE_UNWIRED` (script present, no `UserPromptSubmit` hook runs it), `APE_DEAD_WIRING` (hook runs a missing script), `APE_STDIN_RAW` (the script reads stdin as text, but the hook input is JSON, so its triage never matches and the whole spec is injected on every prompt), and `HOOK_BROAD_MATCH` (a `UserPromptSubmit` shell hook that tests the whole input for a `/word` substring and so fires on any prompt that mentions such a path).
 
+**Files never skipped in silence**: a config file that is not a regular file (device, pipe) or is larger than 5 MB is not read, and `FILE_NOT_SCANNED` says so instead of treating it as clean.
+
+**Permission rules, marketplaces, other tools and headless CI** (all report only): `TASK_RULE_UNKNOWN_AGENT` (a `Task(Name)` rule targets a subagent not defined here, so it acts on nothing), `PLUGIN_SOURCE_UNPINNED` (a marketplace fetched from a moving branch), `CODEX_SANDBOX_OPEN` / `CODEX_APPROVAL_NEVER` (`.codex/config.toml`), `GEMINI_AUTO_APPROVE` / `GEMINI_TRUST_OFF` / `GEMINI_HOOKS_ON` (`.gemini/settings.json`), `CURSOR_RULE_NO_FRONTMATTER` / `CURSOR_RULE_ALWAYS_LARGE` (`.cursor/rules/*.mdc`), and `HEADLESS_SKIP_PERMISSIONS` / `HEADLESS_NO_PERMISSION_MODE` (a workflow runs `claude -p` with every check off, or with no permission mode or allow rule).
+
 **Other files**: misplaced files (`.claude.md`, `mcp.json`, flat skills), GitHub Actions workflows (permissions, credentials, unrestricted Bash), Anthropic API keys anywhere, attribution (assistant signatures).
 
 **rtk**: installation, hook present, permission routing.
