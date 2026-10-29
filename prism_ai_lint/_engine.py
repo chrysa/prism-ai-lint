@@ -165,6 +165,7 @@ from prism_ai_lint.restore_log import RestoreLog as RestoreLog
 from prism_ai_lint.secret_scan import InlineSecretScanner
 from prism_ai_lint.self_update import SelfUpdater
 from prism_ai_lint.skill_agent_checker import SkillAgentChecker
+from prism_ai_lint.surfaces_checker import SurfacesChecker
 from prism_ai_lint.terminal_view import Tty
 from prism_ai_lint.tui_app import TuiApp
 from prism_ai_lint.tui_services import TuiServices
@@ -1476,6 +1477,7 @@ _MODS = ModChecker()
 _ENV = EnvChecker()
 _PERMISSION_RULES = PermissionRulesChecker()
 _OTHER_TOOLS = OtherToolsChecker()
+_SURFACES = SurfacesChecker()
 _CLAUDE_FILES = ClaudeFilesChecker()
 _APE_HOOK = ApeHookChecker()
 
@@ -1824,6 +1826,30 @@ HINTS.update(
         "HEADLESS_NO_PERMISSION_MODE": (
             "A headless run has nobody to answer a prompt; set a permission mode or allow rules so it does not stall.",
             DOCS + "headless",
+        ),
+        "VSCODE_CLAUDE_BYPASS": (
+            "A committed extension setting that skips permission checks applies to everyone who opens the folder.",
+            DOCS + "vs-code",
+        ),
+        "CLAUDE_ACTION_UNPINNED": (
+            "A tag can move; an action that holds repository secrets and write access should be pinned to a commit.",
+            "https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions",
+        ),
+        "CLAUDE_ACTION_OPEN_USERS": (
+            "allowed_non_write_users = * lets anyone who can comment start an agent run that holds the job's secrets.",
+            "https://github.com/anthropics/claude-code-action",
+        ),
+        "AGENT_CLI_UNPINNED": (
+            "A CLI installed from a moving version changes behaviour, permissions and prompts between builds.",
+            DOCS + "setup",
+        ),
+        "CODEX_TRUST_BROAD": (
+            "Trusting a home or root directory makes every project below it load its project config.",
+            "https://developers.openai.com/codex/security",
+        ),
+        "CODEX_MCP_LITERAL_SECRET": (
+            "A credential written in config.toml is committed with the repository; read it from an environment variable.",
+            "https://developers.openai.com/codex/mcp",
         ),
         "FILE_NOT_SCANNED": (
             "A file that is not a regular file or is far larger than any config is skipped, not treated as clean; review it by hand.",
@@ -6307,6 +6333,7 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
         _CLAUDE_FILES.check_repo(r, rep)
         _APE_HOOK.check_repo(r, rep)
         _OTHER_TOOLS.check_repo(r, rep)
+        _SURFACES.check_repo(r, rep)
         check_scopes(r, policy, rep)
     if getattr(args, "generate", False):
         if args.user or args.user_only:
