@@ -1,5 +1,5 @@
 # prism-ai-lint as a container: lint the configuration of the mounted directory.
-#   docker run --rm -v "$PWD:/w" chrysa/prism-ai-lint .
+#   docker run --rm -v "$PWD:/w" chrys4/prism-ai-lint .
 # The image installs the wheel built by the release workflow (dist/*.whl).
 # python:3.13-slim, pinned by digest
 FROM python@sha256:2d44738ebf4ce5f63b9d9ea871e9c7cfdc0426f7b0c97cac915fd88ded1d86bb
