@@ -175,6 +175,12 @@ def _build_projects(home: Path) -> list[Path]:
     return repos
 
 
+@pytest.fixture(autouse=True)
+def _isolate_codex_home(tmp_path_factory, monkeypatch):
+    """Never read the developer's real ~/.codex: point CODEX_HOME at an empty, absent folder."""
+    monkeypatch.setenv("CODEX_HOME", str(tmp_path_factory.mktemp("codex") / "absent"))
+
+
 @pytest.fixture
 def env(tmp_path, monkeypatch):
     """Full miniature environment. Returns an object with home, cfg, repos and a

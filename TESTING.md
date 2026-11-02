@@ -50,3 +50,7 @@ Expected terminal line: `traces in repo: 0`.
 `tests/test_mod_checker.py`, `test_env_checker.py`, `test_claude_files_checker.py` and `test_hook_interpreter_scripts.py` build a
 small tree in `tmp_path`, run one checker and compare the `(level, code)` set; a clean tree must report nothing. `test_audit_mode.py`
 covers `--audit`, `--report` and `--force` end to end (read-only, report outside the repo, deny rules kept).
+`test_codex_checker.py` does the same for Codex layers, `test_codex_parsers.py` covers the `.rules` and `apply_patch`
+parsers (unreadable input must raise), `test_codex_align.py` checks that `--align --fix` only tightens and is stable after
+one pass, and `test_guard_codex.py` checks every Codex loosening is blocked and tightening allowed. `conftest.py` points
+`CODEX_HOME` at an absent folder for every test, so the developer's `~/.codex` is never read.

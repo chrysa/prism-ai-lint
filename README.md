@@ -2,7 +2,7 @@
 
 [![Tests](https://github.com/chrysa/prism-ai-lint/actions/workflows/ci.yml/badge.svg)](https://github.com/chrysa/prism-ai-lint/actions/workflows/ci.yml) [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE) [![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=chrysa_agent-config-lint&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=chrysa_agent-config-lint) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=chrysa_agent-config-lint&metric=coverage)](https://sonarcloud.io/summary/new_code?id=chrysa_agent-config-lint) [![Docs](https://img.shields.io/badge/docs-user%20guide-blue)](https://chrysa.github.io/prism-ai-lint/)
 
-**Linter, fixer and guard for AI coding-agent configuration.** Validates permissions, instructions, hooks, MCP servers, skills and subagents; flags security, token cost and correctness issues; repairs safely. Works with Claude Code, Cursor, Windsurf and others.
+**Linter, fixer and guard for AI coding-agent configuration.** Validates permissions, instructions, hooks, MCP servers, skills and subagents; flags security, token cost and correctness issues; repairs safely. Native support for Claude Code and Codex (OpenAI), plus Cursor, Windsurf and others.
 
 ## 30-second pitch
 
@@ -16,6 +16,8 @@ For individuals: run it to secure and cheapen your setup. For teams: share one `
 ## What it covers
 
 Settings, permissions, hooks, helpers, MCP servers, instruction files (`CLAUDE.md`, `AGENTS.md`), rules, skills, subagents, commands, output styles, plugins, keybindings, GitHub Actions workflows, misplaced files, and Anthropic API keys. Also checks `.github/copilot-instructions.md` (Copilot), `.cursorrules` (Cursor), `.windsurfrules` (Windsurf), and `GEMINI.md` (Gemini CLI).
+
+**Codex** (`~/.codex` or `$CODEX_HOME`, and a project `.codex/`): `config.toml` (keys, sandbox, approvals, permission profiles, MCP servers, secrets, effort), `hooks.json` and inline `[hooks]`, `.rules` files, custom agents (`.codex/agents/*.toml`), skills (`.agents/skills`) and the `AGENTS.md` chain. `--align` compares Claude Code and Codex and mirrors what is safe to mirror.
 
 Two layers: `prism-ai-lint.py` for deterministic checks (safe to run in CI), and an optional guarded agent session (`/config-audit`) for judgment calls.
 
@@ -95,7 +97,9 @@ prism-ai-lint . --fix              # apply repairs (backup in ~/.cache/prism-ai-
 prism-ai-lint . -i                 # interactive review: pick what to fix
 prism-ai-lint . --generate         # preview generated config
 prism-ai-lint . --generate --fix   # generate + lint + repair
-prism-ai-lint . --user --fix       # include user scope (~/.claude)
+prism-ai-lint . --user --fix       # include user scope (~/.claude, ~/.codex)
+prism-ai-lint . --align            # what Claude Code and Codex do not share
+prism-ai-lint . --align --fix      # mirror deny/ask rules and the guard between them
 ```
 
 **Output**: brief report (findings, detected stack, token estimate, next steps). Add `--details` for full per-file findings with `→ fix` actions. Add `-v` for logs, `-q` for errors only, `--format json` for machines.
@@ -107,7 +111,8 @@ prism-ai-lint . --user --fix       # include user scope (~/.claude)
 | `-i` | Interactive: pick what to fix (reversible; `restore.sh` undoes) |
 | `--fix` | Apply repairs and re-scan until stable |
 | `--generate` | Generate missing config for the detected stack |
-| `--user` | Include user scope (`~/.claude`) |
+| `--user` | Include user scope (`~/.claude`, and `~/.codex` when present) |
+| `--align` | Also report Claude Code ↔ Codex gaps (section 5 of the brief); with `--fix`, mirror deny/ask rules and the guard hook (tightening only) |
 | `--details` | Full per-file report with `→ fix` actions |
 | `--diff` | Show diff of changes |
 | `--audit` | Strictly read-only: report findings and list every file `--fix --generate` would change; exit 1 when anything is pending (CI drift check) |
@@ -204,6 +209,10 @@ Tune generation in `.prism-ai-lint.toml` `[generate]` section: which skills/agen
 
 **Other files**: misplaced files (`.claude.md`, `mcp.json`, flat skills), GitHub Actions workflows (permissions, credentials, unrestricted Bash), Anthropic API keys anywhere, attribution (assistant signatures).
 
+**Codex** (report only; TOML is never rewritten): invalid TOML, unknown or deprecated keys (`CODEX_UNKNOWN_KEY`, `CODEX_DEPRECATED_KEY`), keys Codex ignores in a project file (`CODEX_PROJECT_IGNORED`), `danger-full-access` (`CODEX_SANDBOX_FULL_ACCESS`) and full access with `approval_policy = "never"` (`CODEX_NO_GUARDRAILS`, error), invalid approval or sandbox values, permission profiles (`dangerously_*`, invalid `extends`), MCP servers (shape, unknown fields, command not found, literal secrets, too many enabled), hooks (unknown event, skipped `prompt`/`agent` handler, `$CLAUDE_PROJECT_DIR` in a Codex hook, relative `.codex/` path, `SessionEnd` timeout above 3 s, `hooks.json` plus inline `[hooks]`, hooks turned off), `.rules` files (`allow` on an external action such as `git push` — `decision` defaults to `allow` — or on a shell or runner; unreadable rules), custom agents without `name`/`description`/`developer_instructions`, skills without `name`/`description`, `AGENTS.override.md` hiding `AGENTS.md`, `AGENTS.md` above `project_doc_max_bytes` (32 KiB), and a default `model_reasoning_effort` above `[codex] max_effort`.
+
+**Claude Code ↔ Codex (`--align`)**: instructions Codex never reads (`CLAUDE.md` without `AGENTS.md`, lines outside the `@AGENTS.md` import, `@imports` inside `AGENTS.md`, `.claude/rules`), user instructions that differ, Claude Code deny/ask rules with no Codex `forbidden`/`prompt` rule and the reverse, `Read()` denies Codex does not apply, Codex credentials (`~/.codex/auth.json`) readable by Claude Code, the guard hook on one side only, and MCP servers, skills, subagents or effort that differ. `--align --fix` writes only tightening changes: `.codex/rules/prism-ai-lint.rules` (`forbidden`/`prompt` rules), Claude Code `deny`/`ask` rules, `Read(~/.codex/auth.json)` deny, and the guard hook (a new `.codex/hooks.json`, which Codex asks you to trust in `/hooks`). MCP servers, skills, subagents and instructions are reported with the next step, never copied.
+
 **rtk**: installation, hook present, permission routing.
 
 **llmtrim**: route agents present and binary available.
@@ -218,7 +227,7 @@ prism-ai-lint --session-settings /tmp/audit.json
 claude --settings /tmp/audit.json  # then /config-audit
 ```
 
-Every edit checked by `prism-ai-lint --guard` (PreToolUse hook); loosening blocked. Guard blocks: adding allow rules, removing deny/ask, extending tools, adding attribution, code-executing plugins, permission bypasses, edits to critical files, or edits to the linter itself (the whole `prism_ai_lint` package).
+Every edit checked by `prism-ai-lint --guard` (PreToolUse hook); loosening blocked. The same hook works for Codex (`matcher = "Bash|apply_patch"`): `apply_patch` edits are rebuilt from the file on disk and judged like a Write; a patch the guard cannot read, or that does not apply exactly once to a guarded file, is blocked. Codex files are guarded too: `config.toml` and custom agents (sandbox, approvals, network, MCP, hooks, trust, risky features), `hooks.json`, `.rules` (new `allow`, weakened `forbidden`/`prompt`), `.agents/skills`, and `auth.json` / `requirements.toml` are protected. Guard blocks: adding allow rules, removing deny/ask, extending tools, adding attribution, code-executing plugins, permission bypasses, edits to critical files, or edits to the linter itself (the whole `prism_ai_lint` package).
 
 ## Customization
 
@@ -283,6 +292,7 @@ CI runs Python toolchain directly (no `make`): `ruff`, `mypy`, `pytest`, self-ch
 ## Limits
 
 - Reference data is a snapshot (2026-10, checked against the official settings, hooks, sub-agents and skills pages); unknown keys flagged as info, never errors.
+- Codex snapshot: 2026-11 (config reference, `config-schema.json`, hooks, rules, subagents, AGENTS.md and skills pages). A Codex hook that crashes or times out does not block the tool call: the guard can only fail closed on errors it catches (exit 2).
 - Guard's shell check is heuristic; rely on the sandbox for OS-level boundary.
 - Permission rules alone are not a security boundary; the sandbox is.
 

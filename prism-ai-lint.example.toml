@@ -56,6 +56,11 @@ side_effect_words = ["deploy", "release", "publish", "push", "send", "delete", "
 [mcp]
 max_servers = 6
 
+[codex]
+enabled = true
+max_effort = "high"
+extra_keys = []
+
 [portfolio]
 min_projects = 5
 

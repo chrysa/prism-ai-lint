@@ -619,3 +619,114 @@ def safe_model(value: object, fallback: str) -> str:
     if name in MODEL_ALIASES or model_status(name):
         return name
     return fallback
+
+
+# --------------------------------------------------------------------------- #
+# Codex (OpenAI) snapshot: config.toml schema, hooks, rules, custom agents.
+# Checked against learn.chatgpt.com/docs (config-reference, hooks, rules, subagents,
+# agents-md, build-skills) and the published config-schema.json on 2026-11-02.
+# Change it only together with a read of those pages.
+# --------------------------------------------------------------------------- #
+
+CODEX_DOCS_SNAPSHOT = "2026-11"
+CODEX_DOCS = "https://learn.chatgpt.com/docs/"
+CLAUDE_DOCS = "https://code.claude.com/docs/en/"
+
+# Top-level keys of config.toml (config-schema.json `properties`).
+CODEX_KNOWN_KEYS = frozenset(
+    """
+    agents allow_login_shell allow_symlinked_codex_home analytics approval_policy approvals_reviewer apps
+    apps_mcp_product_sku audio auto_review background_terminal_max_timeout browser_use chatgpt_base_url
+    check_for_update_on_startup cli_auth_credentials_store cloud compact_prompt computer_use daybreak
+    default_permissions desktop developer_instructions disable_paste_burst experimental_compact_prompt_file
+    experimental_realtime_start_instructions experimental_realtime_webrtc_call_base_url
+    experimental_realtime_ws_backend_prompt experimental_realtime_ws_base_url experimental_realtime_ws_model
+    experimental_realtime_ws_startup_context experimental_thread_store experimental_use_unified_exec_tool
+    features feedback file_opener forced_chatgpt_workspace_id forced_login_method ghost_snapshot goals
+    hide_agent_reasoning history hooks include_apps_instructions include_collaboration_mode_instructions
+    include_environment_context include_environment_context_time include_permissions_instructions instructions
+    log_dir marketplaces mcp_enterprise_managed_auth mcp_oauth_callback_port mcp_oauth_callback_url
+    mcp_oauth_credentials_store mcp_optional_startup_grace_ms mcp_servers memories model
+    model_auto_compact_token_limit model_auto_compact_token_limit_scope model_catalog_json model_context_window
+    model_instructions_file model_post_turn_compact_threshold_percent model_provider model_providers
+    model_reasoning_effort model_reasoning_summary model_verbosity notice notify openai_base_url orchestrator
+    oss_provider otel permissions personality plan_mode_reasoning_effort plugins profile profiles
+    project_doc_fallback_filenames project_doc_max_bytes project_root_markers projects realtime
+    responses_api_metadata review_model sandbox_mode sandbox_workspace_write service_tier
+    shell_environment_policy show_raw_agent_reasoning skills sqlite_home suppress_unstable_features_warning
+    thread_unload_delay_secs tool_output_token_limit tool_suggest tools tui web_search windows
+    """.split()
+)
+# Deprecated or legacy top-level keys -> what to use instead.
+CODEX_DEPRECATED_KEYS = {
+    "experimental_instructions_file": "model_instructions_file",
+    "background_terminal_timeout": "background_terminal_max_timeout",
+    "disable_paste_burst": "tui.disable_paste_burst",
+    "experimental_use_unified_exec_tool": "features.unified_exec",
+    "personality": "nothing: the key no longer selects a style",
+}
+# Deprecated [features] flags -> replacement.
+CODEX_DEPRECATED_FEATURES = {
+    "codex_hooks": "features.hooks",
+    "web_search": 'top-level web_search = "cached"',
+    "web_search_cached": 'top-level web_search = "cached"',
+    "web_search_request": 'top-level web_search = "live"',
+    "personality": "nothing: the flag is ignored",
+}
+# Keys Codex ignores in a project .codex/config.toml (user config only).
+CODEX_PROJECT_IGNORED_KEYS = frozenset(
+    {
+        "openai_base_url",
+        "chatgpt_base_url",
+        "apps_mcp_product_sku",
+        "model_provider",
+        "model_providers",
+        "notify",
+        "profile",
+        "profiles",
+        "experimental_realtime_ws_base_url",
+        "otel",
+    }
+)
+CODEX_APPROVAL_POLICIES = frozenset({"on-request", "never"})  # or { granular = {...} }
+CODEX_APPROVAL_DEPRECATED = {"on-failure": "on-request (interactive) or never (non-interactive)"}
+CODEX_APPROVAL_UNSUPPORTED = frozenset({"untrusted"})
+# Sandbox modes, least to most permissive.
+CODEX_SANDBOX_MODES = ("read-only", "workspace-write", "danger-full-access")
+# Built-in permission profiles, least to most permissive.
+CODEX_PERMISSION_PROFILES = (":read-only", ":workspace", ":danger-full-access")
+CODEX_TRUST_LEVELS = frozenset({"trusted", "untrusted"})
+# MCP server fields (RawMcpServerConfig).
+CODEX_MCP_FIELDS = frozenset(
+    """
+    args auth bearer_token_env_var command cwd default_tools_approval_mode disabled_tools enabled enabled_tools
+    env env_http_headers env_vars environment_id http_headers http_headers_helper name oauth oauth_resource
+    omit_tools_from required scopes startup_readiness startup_timeout_ms startup_timeout_sec
+    supports_parallel_tool_calls tool_input_schema_max_bytes tool_timeout_sec tools url
+    """.split()
+)
+CODEX_HOOK_EVENTS = frozenset(
+    {
+        "PreModelRequest",
+        "PostModelRequest",
+        "PreToolUse",
+        "PermissionRequest",
+        "PostToolUse",
+        "PreCompact",
+        "PostCompact",
+        "SessionStart",
+        "SessionEnd",
+        "SubagentStart",
+        "SubagentStop",
+        "UserPromptSubmit",
+        "Stop",
+        "Interrupt",
+    }
+)
+CODEX_HOOK_HANDLER_TYPES = frozenset({"command", "mcp_tool"})
+CODEX_HOOK_SKIPPED_TYPES = frozenset({"prompt", "agent"})  # parsed, then skipped
+# Custom agent files (.codex/agents/*.toml): required fields.
+CODEX_AGENT_REQUIRED = ("name", "description", "developer_instructions")
+CODEX_PROJECT_DOC_MAX_BYTES = 32 * 1024  # project_doc_max_bytes default
+# Reasoning efforts by cost, as listed in the docs; model-dependent, unknown values are not judged.
+CODEX_EFFORTS = ("low", "medium", "high", "xhigh", "max", "ultra")

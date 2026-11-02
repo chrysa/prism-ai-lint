@@ -33,6 +33,7 @@ class RunState:
     interactive_ran: bool = False
     show_all: bool = False
     min_level: str = "info"  # hide findings below this level in the report (--min-level)
+    align: bool = False  # --align: Claude Code <-> Codex parity checks and tightening mirrors
     critical_extra: tuple[str, ...] = ()  # [critical] extra_files: repo-relative paths that need validation
 
 
