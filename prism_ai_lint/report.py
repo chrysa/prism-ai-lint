@@ -2,11 +2,20 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from prism_ai_lint.finding import Finding
+
+CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
+
+
+def printable(text: str) -> str:
+    """Replace control characters (terminal escapes included) that a scanned file could smuggle into a message."""
+    return CONTROL_CHARS.sub("?", text)
+
 
 DisabledCodesProvider = Callable[[], set[str]]
 SeverityOverridesProvider = Callable[[], Mapping[str, str]]
@@ -78,7 +87,7 @@ class Report:
         if code in _disabled_codes_provider():
             return
         level = _severity_overrides_provider().get(code, level)
-        self.findings.append(Finding(level, code, str(path), msg, fixable))
+        self.findings.append(Finding(level, code, printable(str(path)), printable(msg), fixable))
         _log_fn(3, f"finding {level}:{code} @ {path}")
 
     def count(self, level: str) -> int:
