@@ -13,6 +13,7 @@ class CriticalContentPolicy:
         {
             "CLAUDE.md",
             "AGENTS.md",
+            "AGENTS.override.md",
             "README.md",
             "ARCHITECTURE.md",
             "DECISIONS.md",

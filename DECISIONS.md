@@ -4,6 +4,22 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-040 · Codex is a first-class target; `--align` mirrors only what tightens
+Codex layers (`$CODEX_HOME` or `~/.codex`, project `.codex/`) are linted like Claude Code ones, against a 2026-11 snapshot
+of the Codex docs and `config-schema.json` (`_reference.py`). Codex checks are **report-only**: the stdlib reads TOML but
+cannot write it, and a hand-rolled TOML writer would risk corrupting user config. `.rules` files are Starlark: they are read
+with `ast.literal_eval`, never executed, and anything non-literal is reported (lint) or blocked (guard). The guard handles
+Codex `apply_patch` by rebuilding the edited text; on guarded files a chunk must match exactly once, so the judged text
+is the written text. `--align` is opt-in: it adds the parity checks and, with `--fix`, writes only deny/ask mirrors
+(`forbidden`/`prompt` rules in a marked `prism-ai-lint.rules`, `Bash()` deny/ask in Claude Code), a `Read()` deny on
+`~/.codex/auth.json`, and the canonical guard hook of this installation into a **new** `.codex/hooks.json` (an
+existing hook command is never copied, and nothing is written through a symlink). The Codex guard replays `apply_patch`
+sections in order like codex-rs and treats any uncertainty on a guarded file as a block; Codex config keys work on an
+allowlist, so a key newer than the snapshot cannot loosen anything unnoticed. Copying MCP servers, skills or subagents adds a
+capability, and instruction files are critical content, so those stay report-only with the next step. **Why:** owner request
+(2026-11-02) for native Claude Code + Codex support and a way to make both enforce the same rules; never-loosen still
+holds on both sides. **Reverse:** set `[codex] enabled = false`; drop `--align` to keep the two tools independent.
+
 ## D-039 · Published with Trusted Publishing to PyPI and as a Docker Hub image
 A release on `main` is built once and published from the same workflow: TestPyPI, then PyPI
 through Trusted Publishing (OIDC, no stored token), then the image `docker.io/chrysa/prism-ai-lint`

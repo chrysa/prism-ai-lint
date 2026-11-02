@@ -34,6 +34,18 @@ families.
 running the Claude action (moving refs, literal credentials, permission bypass), Anthropic API
 keys in any file, assistant attribution in files and commits.
 
+**Codex** (`~/.codex` or `$CODEX_HOME`, project `.codex/`; report only): `config.toml` keys
+(unknown, deprecated, ignored at project scope), sandbox and approvals (`danger-full-access`, full
+access with `approval_policy = "never"`), permission profiles, MCP servers (shape, fields, missing
+command, literal secrets, count), hooks (`hooks.json` and `[hooks]`: events, handler types,
+Claude Code variables, timeouts), `.rules` files (`allow` on external actions, shells or runners),
+custom agents, `.agents/skills`, `AGENTS.override.md` and the 32 KiB `project_doc_max_bytes` limit.
+
+**Claude Code ↔ Codex** (`--align`): instructions one tool never reads, deny/ask rules missing on
+one side, Codex credentials readable by Claude Code, the guard on one side only, and MCP servers,
+skills, subagents or effort that differ. `--align --fix` only adds deny/ask mirrors, a credentials
+deny and the guard hook; it never copies MCP servers, skills, subagents or instructions.
+
 **rtk and llmtrim** (when present): installation, hook, permission routing, dead route agents.
 
 Run `prism-ai-lint --dump-reference` to see the documentation snapshot the checks compare against.

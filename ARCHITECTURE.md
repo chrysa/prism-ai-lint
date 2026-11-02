@@ -56,6 +56,13 @@ section banners:
 | `prism_ai_lint/config_flags.py` | `ConfigFlags`: CLI defaults from the `[flags]` table of `.prism-ai-lint.toml` in the current directory, limited to options that never write (`SAFE_FLAGS`); the command line wins, other keys are rejected with a warning, guard mode never reads it. |
 | `prism_ai_lint/ape_checker.py` | `APEChecker`: hedging verbs and open-ended scope in instruction files; `InstructionChecker` reports one `INSTR_VAGUE` (info) per file above `instructions.vague_wording_min`. |
 | `prism_ai_lint/llmtrim_checker.py` | `LlmtrimChecker`: `token_budget` adds `LLMTRIM_SUGGESTED` (info) when the always-loaded context exceeds `tokens.max_always_loaded` and llmtrim is absent (skipped with `--no-cli`). |
+| `prism_ai_lint/codex_checker.py` | `CodexChecker`: Codex user layer (`$CODEX_HOME`, `~/.codex`) and project `.codex/`: `config.toml` keys and values (sandbox, approvals, permission profiles, MCP, shell env, effort), `hooks.json` / inline `[hooks]`, `.rules`, custom agents, `.agents/skills`, `AGENTS.md` size and override. Reports only (no TOML writer in the stdlib). Engine instance `_CODEX`, called from `lint_user` / `lint_repo` when `[codex] enabled`. |
+| `prism_ai_lint/codex_layer.py` | `CodexLayer`: locate (`home`, `in_use`) and read (`load_toml`, `load_hooks_json`, `hook_commands`) a Codex layer. |
+| `prism_ai_lint/codex_rules.py` (+ `prefix_rule.py`, `rules_parse_error.py`) | `CodexRules.parse`: Codex `prefix_rule()` files read with `ast` + `literal_eval`, never executed; only top-level literal calls with Starlark-compatible tokens are accepted, anything else raises `RulesParseError`. `decision_for` (most restrictive wins), `render`. |
+| `prism_ai_lint/codex_patch.py` (+ `patch_chunk.py`, `patch_op.py`, `patch_error.py`) | `CodexPatch`: parse Codex `apply_patch` envelopes and rebuild the written text as codex-rs does (stable sort, applied from the end, Rust whitespace); `strict` refuses approximate, repeated or overlapping matches; a work budget keeps the guard fast. |
+| `prism_ai_lint/agent_aligner.py` | `AgentAligner` (`--align`, built by `_aligner()`): Claude Code ↔ Codex parity. Registers only tightening changes (mirrored deny/ask, credential deny, guard hook in a new file), never through a symlink; MCP, skills, subagents and instructions are report-only. |
+| `prism_ai_lint/guard_command.py` | `GuardCommand`: recognise a plain `prism-ai-lint --guard` hook and build the canonical one for each tool (a hook command is never copied). |
+| `prism_ai_lint/codex_messages.py` | Data only: Codex / `--align` hints and brief rows merged into `HINTS`, `BRIEF_FR`, `BRIEF_EN`. |
 | `prism_ai_lint/agent_converter.py` | `AgentConverter` and per-tool adapters (`ClaudeAdapter`, `CodexAdapter`, `AgentsAdapter`) for lossless agent-config conversion (Claude ↔ Codex ↔ AGENTS). |
 | `prism_ai_lint/guard_checker.py` | `GuardChecker` extracts guard logic from engine: PreToolUse checks for loosening config, removed deny rules, attribution, critical content. |
 | `prism_ai_lint/tui_app.py` | `TuiApp` (interactive terminal review) and `TuiServices` provide structured feedback, section selection, critical-diff approval, conversion flows and readiness signals. |
@@ -84,9 +91,9 @@ section banners:
    Claude/Codex/AGENTS formats. `--approve-conversion` + `apply_conversion()` write the target.
    Guard checks conversion writes via `GuardChecker.mcp_violations()` before critical
    validation blocks (content-violations-first order).
-3. `run_lint` builds fresh `Report`, runs `lint_user` (user scope) and `lint_repo` per repo.
+3. `run_lint` builds fresh `Report`, runs `lint_user` (user scope) and `lint_repo` per repo. Both call `_CODEX` (Codex layers) and, with `--align` (`state.align`), `_aligner()`.
    Checks only **record** findings and mutations — never write. `ProjectProfiler` detects stack.
-4. `--guard` PreToolUse: `GuardChecker` runs first, checks content violations (MCP, perms, etc),
+4. `--guard` PreToolUse (Claude Code, and Codex with `matcher = "Bash|apply_patch"`; Codex `apply_patch` is replayed by `CodexPatch` on a virtual copy and judged per change and per final file): `GuardChecker` runs first, checks content violations (MCP, perms, etc),
    then `CriticalContentValidator` blocks unvalidated edits to config/instruction/doc/rule files.
    Guard fails closed on any error.
 5. Read-only run → render (`render_brief` default, `render_text` for `--details`).

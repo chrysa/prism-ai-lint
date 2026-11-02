@@ -91,6 +91,11 @@ from prism_ai_lint._reference import (
     AGENT_FIELDS,
     AGENTS_SKELETON,
     ATTRIBUTION_PATTERNS,
+    CLAUDE_DOCS,
+    CODEX_DOCS_SNAPSHOT,
+    CODEX_HOOK_EVENTS,
+    CODEX_KNOWN_KEYS,
+    CODEX_MCP_FIELDS,
     COMMIT_MSG_HOOK,
     CURRENT_MODELS,
     DOCS_SNAPSHOT,
@@ -134,10 +139,14 @@ from prism_ai_lint._runtime import (
     read_text,
     state,
 )
+from prism_ai_lint.agent_aligner import AgentAligner
 from prism_ai_lint.agent_contract import AgentContract
 from prism_ai_lint.agent_converter import ADAPTERS, ECOSYSTEMS, AgentConverter, canonical
 from prism_ai_lint.ape_hook_checker import ApeHookChecker
 from prism_ai_lint.claude_files_checker import ClaudeFilesChecker
+from prism_ai_lint.codex_checker import CodexChecker
+from prism_ai_lint.codex_layer import CodexLayer
+from prism_ai_lint.codex_messages import CODEX_BRIEF_EN, CODEX_BRIEF_FR, CODEX_HINTS
 from prism_ai_lint.compression_checker import CompressionChecker
 from prism_ai_lint.config_flags import ConfigFlags
 from prism_ai_lint.content_validation import CriticalContentValidator as CriticalContentValidator
@@ -199,7 +208,7 @@ def _detect_version() -> str:
 
 
 VERSION = _detect_version()
-DOCS = "https://code.claude.com/docs/en/"
+DOCS = CLAUDE_DOCS
 ISSUES = "https://github.com/anthropics/claude-code/issues/"
 
 # --------------------------------------------------------------------------- #
@@ -393,6 +402,12 @@ DEFAULT_POLICY: dict[str, Any] = {
         ],
     },
     "mcp": {"max_servers": 6},
+    # Codex (OpenAI) configuration: ~/.codex ($CODEX_HOME) and project .codex/ layers.
+    "codex": {
+        "enabled": True,  # lint Codex config.toml, hooks, rules, custom agents and skills when present
+        "max_effort": "high",  # model_reasoning_effort above this is a token lever (CODEX_EFFORT_HIGH)
+        "extra_keys": [],  # config.toml keys newer than the built-in snapshot
+    },
     "portfolio": {"min_projects": 5},  # a pack copied into at least this many scanned projects is reported
     # Reference data extensions: the ONLY table an audit agent may edit (the guard enforces it).
     # Lets the linter follow new docs (keys, events, tools, fields) without code changes.
@@ -1641,6 +1656,8 @@ _SKILLS = SkillAgentChecker(_INSTRUCTIONS)
 
 
 _MCP = McpChecker(_SECRETS)
+_CODEX = CodexChecker(_SECRETS)
+HINTS.update(CODEX_HINTS)
 
 
 # --------------------------------------------------------------------------- #
@@ -5136,6 +5153,7 @@ SECTION_TITLES = {
     "broken": "2. CASSÉ : configuré mais ne fonctionne pas",
     "tokens": "3. TOKENS : ce qui alourdit chaque session",
     "dups": "4. DOUBLONS",
+    "align": "5. CLAUDE CODE <-> CODEX : ce qu'un outil a et pas l'autre",
 }
 BRIEF_EN = {
     "GRAPHIFY_MISSING": ("other", "Graphify CLI not found", "install Graphify or drop --graphify"),
@@ -5299,11 +5317,15 @@ BRIEF_EN = {
         "put it in a shared plugin",
     ),
 }
+
+BRIEF_FR.update(CODEX_BRIEF_FR)
+BRIEF_EN.update(CODEX_BRIEF_EN)
 SECTION_TITLES_EN = {
     "security": "1. SECURITY AND PORTFOLIO RULES (handle first)",
     "broken": "2. BROKEN: configured but not working",
     "tokens": "3. TOKENS: what weighs on every session",
     "dups": "4. DUPLICATES",
+    "align": "5. CLAUDE CODE <-> CODEX: what one tool has and the other lacks",
 }
 
 
@@ -5422,7 +5444,7 @@ def render_brief(rep: Report, fixed: list[Finding], fix: bool, repos_count: int,
     for f in rep.findings:
         by_code.setdefault(f.code, []).append(f)
     shown: set[str] = set()
-    for section in ("security", "broken", "tokens", "dups"):
+    for section in ("security", "broken", "tokens", "dups", "align"):
         rows = []
         for code, (sec, what, todo) in brief_table().items():
             if sec != section or code not in by_code:
@@ -5499,7 +5521,7 @@ def render_brief(rep: Report, fixed: list[Finding], fix: bool, repos_count: int,
         out += [
             "",
             f"{b}"
-            + _loc("5. LE RESTE", "5. THE REST")
+            + _loc("6. LE RESTE", "6. THE REST")
             + f"{r0} : "
             + _loc(
                 f"{len(rest)} remarque(s) mineure(s) ({joined}) : voir --details",
@@ -6061,6 +6083,17 @@ def scaffold_user(policy: dict, rep: Report) -> None:
 # --------------------------------------------------------------------------- #
 
 
+def _aligner() -> AgentAligner:
+    """Claude Code <-> Codex parity checks for --align; built on demand (it uses generation helpers)."""
+    return AgentAligner(
+        split_rule=split_rule,
+        trailing_wildcard=trailing_wildcard,
+        write_json_merged=write_json_merged,
+        gen_new_file=gen_new_file,
+        config_dir=config_dir,
+    )
+
+
 def check_portfolio(repos: list[Path], policy: dict, rep: Report) -> None:
     """Report agents and skills copied identically into many of the scanned projects."""
     for pack in PortfolioChecker(policy["portfolio"]["min_projects"]).packs(repos):
@@ -6082,6 +6115,13 @@ def lint_user(policy: dict, rep: Report, repos: list[Path]) -> str | None:
     log(1, f"user scope: {home}")
     if state.scaffold:
         scaffold_user(policy, rep)
+    if policy["codex"]["enabled"]:
+        _CODEX.check_user(policy, rep)
+        codex_doc = CodexLayer.home() / "AGENTS.md"
+        if codex_doc.is_file():
+            _INSTRUCTIONS.check_instruction_file(codex_doc, "user", policy, rep, None)
+    if state.align:
+        _aligner().check_user(rep)
     if not home.is_dir():
         rep.add("info", "USER_SCOPE_ABSENT", home, "no user-scope configuration")
         return None
@@ -6161,6 +6201,10 @@ def lint_repo(repo: Path, policy: dict, rep: Report, history: bool, user_text: s
             f"user defaultMode={user_mode} may be dropped by this project's permissions block",
         )
     _MCP.check_mcp(repo / ".mcp.json", rep, policy)
+    if policy["codex"]["enabled"]:
+        _CODEX.check_repo(repo, policy, rep)
+    if state.align:
+        _aligner().check_repo(repo, rep)
     _SKILLS.check_agent_assets(dot, policy, rep, "project", repo)
     check_output_styles(dot, rep)
     for proot in find_plugin_roots(repo):
@@ -6582,6 +6626,8 @@ def visible_findings(findings: list[Finding]) -> list[Finding]:
 
 
 CATEGORIES = [
+    ("CODEX_", "codex"),
+    ("ALIGN_", "alignment"),
     ("MOD_", "plugins"),
     ("ENV_", "settings"),
     ("PERM_", "permissions"),
@@ -6958,6 +7004,10 @@ def dump_reference() -> dict:
         "skill_fields": sorted(SKILL_FIELDS),
         "agent_fields": sorted(AGENT_FIELDS),
         "project_dead_keys": PROJECT_DEAD_KEYS,
+        "codex_docs_snapshot": CODEX_DOCS_SNAPSHOT,
+        "codex_config_keys": sorted(CODEX_KNOWN_KEYS),
+        "codex_hook_events": sorted(CODEX_HOOK_EVENTS),
+        "codex_mcp_fields": sorted(CODEX_MCP_FIELDS),
     }
 
 
@@ -7210,6 +7260,8 @@ def main(argv: list[str] | None = None) -> int:
             "$CLAUDE_CONFIG_DIR)\n"
             "  prism-ai-lint.py ~/dev --user          every git repo under ~/dev, plus user scope\n"
             "  prism-ai-lint.py . --generate          preview config to generate for the stack\n"
+            "  prism-ai-lint.py . --align             report what Claude Code and Codex do not share\n"
+            "  prism-ai-lint.py . --align --fix       mirror deny/ask rules and the guard between them\n"
             "  prism-ai-lint.py . -i                  interactive review (duplicates, packs, "
             "restructurings)\n"
             "  prism-ai-lint.py . --full-yes          apply repairs and local review actions without prompts\n"
@@ -7244,6 +7296,12 @@ def main(argv: list[str] | None = None) -> int:
         help="preview an agent contract conversion; never writes files",
     )
     ap.add_argument("--convert-from", choices=ECOSYSTEMS, help="source ecosystem for --convert-to")
+    ap.add_argument(
+        "--align",
+        action="store_true",
+        help="also check Claude Code <-> Codex parity (instructions, deny/ask rules, guard hook, MCP, skills, "
+        "subagents, effort); with --fix, mirror deny/ask rules and the guard hook (tightening only)",
+    )
     ap.add_argument(
         "--apply-conversion",
         action="store_true",
@@ -7420,6 +7478,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.convert_from and not args.convert_to:
         ap.error("--convert-from requires --convert-to")
     args.convert_to, args.convert_from = canonical(args.convert_to), canonical(args.convert_from)
+    if args.align and (args.convert_to or args.guard):
+        ap.error("--align cannot be combined with conversion or guard mode")
     if args.convert_to:
         if args.fix or args.generate or args.user or args.user_only or args.guard or args.restore is not None:
             ap.error("conversion preview cannot be combined with writing or user/guard/restore modes")
@@ -7451,6 +7511,7 @@ def main(argv: list[str] | None = None) -> int:
         return restore_trash(args.restore or None)
     state.verbosity, state.scaffold, state.show_all = args.verbose, not args.no_scaffold, args.all
     state.show_diff = args.diff
+    state.align = args.align
     CHANGE_LOG.clear()
     state.min_level = args.min_level
     # Progress bar by default: interactive stderr, no -v (which logs per repo),
