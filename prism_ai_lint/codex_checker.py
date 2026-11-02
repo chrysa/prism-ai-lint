@@ -283,6 +283,9 @@ class CodexChecker:
             for sect in ("env", "http_headers"):
                 if isinstance(server.get(sect), dict):
                     self._secrets.check_env_secrets(server[sect], path, rep, f"mcp_servers.{name}.{sect}", "report")
+            literal = {k: server[k] for k in ("bearer_token", "experimental_bearer_token") if k in server}
+            if literal:  # not Codex fields: a token written here is a committed secret, never read by Codex
+                self._secrets.check_env_secrets(literal, path, rep, f"mcp_servers.{name}", "report")
             command = server.get("command")
             if isinstance(command, str) and not server.get("url") and not McpChecker._command_found(command, path):
                 try:

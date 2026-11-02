@@ -543,3 +543,10 @@ def test_mcp_cli_with_options_blocked(guard, command):
 def test_mcp_cli_read_only_allowed(guard):
     assert guard("Bash", command="claude mcp list") is None
     assert guard("Bash", command="codex mcp get github") is None
+
+
+def test_mcp_cli_exemption_is_anchored_to_the_subcommand(guard):
+    assert guard("Bash", command='claude mcp add x -- echo "mcp list "')
+    assert guard("Bash", command="codex mcp add 'x' -- sh -c 'mcp get y'")
+    assert guard("Bash", command="claude --debug mcp list") is None
+    assert guard("Bash", command="claude mcp 'unterminated")

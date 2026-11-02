@@ -319,3 +319,11 @@ def test_crafted_rules_are_reported_not_crashing(lint, text):
     repo, run = lint
     _w(repo / ".codex/rules/x.rules", text)
     assert "CODEX_RULES_INVALID" in codes(run())
+
+
+def test_mcp_bearer_token_literal_reported(lint):
+    repo, run = lint
+    token = "sk-" + "Zx9" * 14
+    _w(repo / ".codex/config.toml", f'[mcp_servers.x]\nurl = "https://x.invalid"\nbearer_token = "{token}"\n')
+    found = run()
+    assert "SECRET_INLINE" in codes(found) and not any(token in f.message for f in found)

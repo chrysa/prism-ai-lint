@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shlex
 import signal
 import stat
 import sys
@@ -606,9 +607,22 @@ class GuardChecker:
 
     @staticmethod
     def _mcp_cli_change(cmd: str) -> bool:
-        """True when a shell segment runs `codex ... mcp` or `claude ... mcp` with anything but list/get."""
+        """True when a shell segment runs `codex|claude [options] mcp <verb>` with a verb other than
+        list/get. The verb is the first non-option token after `mcp`; an unreadable segment blocks."""
         for segment in re.split(r"[;&|\n`]+|\$\(", cmd):
-            if MCP_CLI.search(segment) and not re.search(r"\bmcp\s+(list|get)(\s|$)", segment):
+            if not MCP_CLI.search(segment):
+                continue
+            try:
+                tokens = shlex.split(segment)
+            except ValueError:
+                return True
+            verb = None
+            for i, tok in enumerate(tokens):
+                if os.path.basename(tok) in ("claude", "codex") and "mcp" in tokens[i + 1 :]:
+                    after = tokens[i + 1 :][tokens[i + 1 :].index("mcp") + 1 :]
+                    verb = next((a for a in after if not a.startswith("-")), None)
+                    break
+            if verb not in ("list", "get"):
                 return True
         return False
 
