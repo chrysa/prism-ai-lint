@@ -4,7 +4,7 @@
 No third-party dependencies. Python >= 3.13.
 
 Rules follow the official Claude Code documentation (settings, permissions,
-hooks, memory, skills, tools reference) as of 2026-09, plus known upstream
+hooks, memory, skills, tools reference) as of 2026-10, plus known upstream
 issues. The settings schema moves fast: unknown keys are reported as info,
 never as errors, and every finding carries a reference link at -v.
 
@@ -93,6 +93,7 @@ from prism_ai_lint._reference import (
     ATTRIBUTION_PATTERNS,
     COMMIT_MSG_HOOK,
     CURRENT_MODELS,
+    DOCS_SNAPSHOT,
     HOOK_SIGNATURE,
     KNOWN_HOOK_EVENTS,
     KNOWN_SETTINGS_KEYS,
@@ -106,6 +107,7 @@ from prism_ai_lint._reference import (
     PRIMARY_PARAMS,
     PROJECT_DEAD_KEYS,
     READONLY_BUILTINS,
+    REMOVED_SETTINGS_KEYS,
     RULE_ONLY_TOOLS,
     SECRET_REDACT_RE,
     SECRETS_GITIGNORE,
@@ -1500,7 +1502,11 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
         if k not in KNOWN_SETTINGS_KEYS and k != "mcpServers":
             close = difflib.get_close_matches(k, KNOWN_SETTINGS_KEYS, n=1, cutoff=0.8)
             hint = f"; did you mean {close[0]!r}?" if close else " (schema may be newer)"
-            rep.add("info", "SETTINGS_UNKNOWN_KEY", path, f"unrecognised key {k!r}{hint} (docs snapshot 2026-09)")
+            rep.add(
+                "info", "SETTINGS_UNKNOWN_KEY", path, f"unrecognised key {k!r}{hint} (docs snapshot {DOCS_SNAPSHOT})"
+            )
+        if k in REMOVED_SETTINGS_KEYS:
+            rep.add("info", "SETTINGS_REMOVED_KEY", path, f"{k}: {REMOVED_SETTINGS_KEYS[k]}; it does nothing")
         if scope == "project" and k in PROJECT_DEAD_KEYS:
             # A key a project settings file cannot set (managed-settings only) is
             # dead here: removing it changes nothing at runtime and only ever
@@ -1774,6 +1780,10 @@ HINTS.update(
         "TOKEN_LISTING_BUDGET": (
             "Skill and subagent descriptions are sent every turn; manual-only skills can drop out of that listing.",
             DOCS + "skills",
+        ),
+        "SETTINGS_REMOVED_KEY": (
+            "The docs list this key as removed: the parser accepts it, but it has no effect any more.",
+            DOCS + "settings",
         ),
         "ENV_WEAKENS_SECURITY": (
             "These variables switch off a safety prompt or protection of the shell tool or the managed environment.",
@@ -6940,7 +6950,7 @@ def run_plugin_checks(scope: str, root: Path, policy: dict, rep: Report) -> None
 
 def dump_reference() -> dict:
     return {
-        "docs_snapshot": "2026-09",
+        "docs_snapshot": DOCS_SNAPSHOT,
         "settings_keys": sorted(KNOWN_SETTINGS_KEYS),
         "hook_events": sorted(KNOWN_HOOK_EVENTS),
         "tools": sorted(KNOWN_TOOLS),
@@ -6988,7 +6998,7 @@ def catalog_data() -> dict:
             "action_en": (BRIEF_EN.get(code) or ("", "", ""))[2],
         }
     return {
-        "docs_snapshot": "2026-09",
+        "docs_snapshot": DOCS_SNAPSHOT,
         "reference": {
             "settings_keys": sorted(KNOWN_SETTINGS_KEYS),
             "project_dead_keys": PROJECT_DEAD_KEYS,

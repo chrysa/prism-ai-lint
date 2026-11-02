@@ -269,7 +269,7 @@ CI runs Python toolchain directly (no `make`): `ruff`, `mypy`, `pytest`, self-ch
 
 ## Limits
 
-- Reference data is a snapshot (2026-09); unknown keys flagged as info, never errors.
+- Reference data is a snapshot (2026-10, checked against the official settings, hooks, sub-agents and skills pages); unknown keys flagged as info, never errors.
 - Guard's shell check is heuristic; rely on the sandbox for OS-level boundary.
 - Permission rules alone are not a security boundary; the sandbox is.
 
