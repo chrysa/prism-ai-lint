@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import shlex
 import signal
 import stat
 import sys
@@ -30,6 +29,9 @@ PATCH_PROGRAM = re.compile(r"\b(apply_?patch|apply-patch|codex-run-as-apply-patc
 # Only a quoted heredoc delimiter: with <<EOF the shell would expand $(...) and backticks in the body.
 SHELL_PATCH = re.compile(r"\s*apply_?patch\s+<<-?\s*(['\"])(\w+)\1[ \t]*\n(?P<body>.*)\n\2\s*", re.S)
 MCP_CLI = re.compile(r"\b(codex|claude)\b.*\bmcp\b")
+MCP_READ_ONLY = re.compile(
+    r"\s*(?:[\w./-]*/)?(?:claude|codex)(?:\s+--?[\w-]+)*\s+mcp\s+(?:list|get\s+[\w.@-]+)(?:\s+--?[\w-]+)*\s*"
+)
 CONFIG_HINT = re.compile(
     r"(settings(\.local)?\.json|\.mcp\.json|\.claude\.json|/\.claude/|\.claude/|"
     r"\.agent-lint\.toml|\.claude-lint\.toml|\.git/hooks|ai-lint|ai_lint[/\\]|\.ai-lint\b|"
@@ -607,22 +609,11 @@ class GuardChecker:
 
     @staticmethod
     def _mcp_cli_change(cmd: str) -> bool:
-        """True when a shell segment runs `codex|claude [options] mcp <verb>` with a verb other than
-        list/get. The verb is the first non-option token after `mcp`; an unreadable segment blocks."""
+        """True unless every shell segment that names `codex|claude ... mcp` is exactly a read-only
+        call: `[path/](claude|codex) [--flag ...] mcp list|get [plain args]`. Anything else (option
+        values, quotes, substitutions, a second program in the segment) blocks."""
         for segment in re.split(r"[;&|\n`]+|\$\(", cmd):
-            if not MCP_CLI.search(segment):
-                continue
-            try:
-                tokens = shlex.split(segment)
-            except ValueError:
-                return True
-            verb = None
-            for i, tok in enumerate(tokens):
-                if os.path.basename(tok) in ("claude", "codex") and "mcp" in tokens[i + 1 :]:
-                    after = tokens[i + 1 :][tokens[i + 1 :].index("mcp") + 1 :]
-                    verb = next((a for a in after if not a.startswith("-")), None)
-                    break
-            if verb not in ("list", "get"):
+            if MCP_CLI.search(segment) and not MCP_READ_ONLY.fullmatch(segment):
                 return True
         return False
 

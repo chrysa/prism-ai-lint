@@ -550,3 +550,17 @@ def test_mcp_cli_exemption_is_anchored_to_the_subcommand(guard):
     assert guard("Bash", command="codex mcp add 'x' -- sh -c 'mcp get y'")
     assert guard("Bash", command="claude --debug mcp list") is None
     assert guard("Bash", command="claude mcp 'unterminated")
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "claude mcp list claude mcp add x y",
+        "codex mcp get a <(codex mcp add b c)",
+        "{ claude mcp add x y; }",
+        "claude -c a=b mcp list",
+        "claude mcp --scope user list",
+    ],
+)
+def test_mcp_cli_strict_grammar(guard, command):
+    assert guard("Bash", command=command)
