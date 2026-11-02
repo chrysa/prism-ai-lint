@@ -14,6 +14,24 @@ from prism_ai_lint.codex_adapter import CodexAdapter
 
 ADAPTERS = {a.name: a for a in (ClaudeAdapter(), CodexAdapter(), AgentsAdapter())}
 
+# Product surfaces that share one project instruction mapping. The CLI, the IDE and desktop
+# extensions and the GitHub action read the same CLAUDE.md and .claude/rules; the Codex CLI, IDE
+# and cloud agent, and Codex in ChatGPT, read the same AGENTS.md (and AGENTS.override.md).
+ALIASES = {
+    "claude-code": "claude",
+    "claude-code-cli": "claude",
+    "codex-cli": "codex",
+    "codex-ide": "codex",
+    "codex-cloud": "codex",
+    "chatgpt": "codex",
+}
+ECOSYSTEMS = (*ADAPTERS, *ALIASES)
+
+
+def canonical(name: str | None) -> str | None:
+    """Map a product surface name to the adapter that serves it; other names pass through."""
+    return ALIASES.get(name, name) if name else name
+
 
 class AgentConverter:
     def __init__(self, redact: Callable[[str], str]) -> None:
