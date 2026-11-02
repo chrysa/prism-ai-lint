@@ -188,8 +188,8 @@ class CodexPatch:
         return found
 
     def apply_update(self, old: str, chunks: list[PatchChunk], strict: bool = False) -> str:
-        """The file text Codex writes after `chunks`."""
-        self._left = self.MAX_WORK
+        """The file text Codex writes after `chunks`. The work budget is shared by every call on this
+        instance, so one guard decision stays bounded however many sections a patch has."""
         lines = old.split("\n")
         if lines and lines[-1] == "":
             lines.pop()

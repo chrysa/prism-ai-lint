@@ -61,7 +61,8 @@ A PreToolUse hook that **blocks** (exit 2 + reason) any Edit/Write/Bash that wou
   `approval_policy = "never"`, `approvals_reviewer` off `user`, network or writable roots widened, a new or re-enabled
   MCP server or tool, hooks removed or disabled (`[features]`, `hooks.state`), a project trusted, any `[features]`
   flag or permission profile changed. Codex keys work on an allowlist: outside the safe keys (model, effort, display,
-  custom-agent persona) and the keys judged value by value, **any** change (`profile`/`[profiles]`, providers, base
+  custom-agent name and description; instruction content such as `developer_instructions` or `project_doc_*` is
+  left to the human) and the keys judged value by value, **any** change (`profile`/`[profiles]`, providers, base
   URLs, `notify`, `apps`, `plugins`, `shell_environment_policy`, keys newer than the snapshot) is blocked. The same
   applies to `<profile>.config.toml` files in the Codex home;
 - add a Codex `allow` rule (the default decision) or remove/weaken a `forbidden`/`prompt` rule;
@@ -70,7 +71,7 @@ A PreToolUse hook that **blocks** (exit 2 + reason) any Edit/Write/Bash that wou
   its text must occur once in the file, and each change plus each file's final text is judged; paths are judged as
   written (`..` folded) and as resolved (symlinks), case-insensitively; a guarded target that is not a regular file
   or is above 1 MB is not read and the call is blocked (so the guard cannot be pushed past the hook timeout);
-- run a patch through the shell in any form other than `apply_patch <<'EOF' ... EOF` alone (no `cd`, no other
+- run a patch through the shell in any form other than `apply_patch <<'EOF' ... EOF` alone, with a quoted delimiter (no `cd`, no other
   program, no patch read from a file), apply a patch from another `workdir`, or run `codex mcp` / `claude mcp`
   add/remove;
 - write a file with several hard links, or a guarded file that is not valid UTF-8;
@@ -79,7 +80,7 @@ A PreToolUse hook that **blocks** (exit 2 + reason) any Edit/Write/Bash that wou
   calls with literal, Starlark-compatible arguments and consistent `match` / `not_match` examples are read;
 - touch Codex credentials (`auth.json`) or managed requirements (`requirements.toml`, `/etc/codex/`).
 
-It **fails closed**: any internal error blocks by default. It also blocks when it has not decided within 20 s (below the 30 s hook
+It **fails closed**: any internal error blocks by default. It also blocks when it has not decided within 20 s (a `BaseException`, so no `except` on the way can swallow it) (below the 30 s hook
 timeout, after which Claude Code and Codex would let the call through). It recognises prism-ai-lint's own
 edits by *behaviour*, not filename, so renaming the tool cannot bypass it. Running the
 linter itself is allowed (it only tightens); running it with permission-adding flags

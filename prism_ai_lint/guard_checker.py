@@ -26,8 +26,9 @@ MAX_GUARDED_BYTES = 1_000_000  # larger (or non-regular) targets are not read: g
 _UNKNOWN = object()  # a file whose text after a patch section cannot be rebuilt
 GUARD_DEADLINE = 20  # seconds; below the 30 s hook timeout, after which Codex and Claude Code let the call through
 PATCH_PROGRAM = re.compile(r"\b(apply_?patch|apply-patch|codex-run-as-apply-patch)\b", re.I)
-SHELL_PATCH = re.compile(r"\s*apply_?patch\s+<<-?\s*(['\"]?)(\w+)\1[ \t]*\n(?P<body>.*)\n\2\s*", re.S)
-MCP_CLI = re.compile(r"\b(codex|claude)\s+mcp\s+(add|add-json|add-from-claude-desktop|remove|rm)\b")
+# Only a quoted heredoc delimiter: with <<EOF the shell would expand $(...) and backticks in the body.
+SHELL_PATCH = re.compile(r"\s*apply_?patch\s+<<-?\s*(['\"])(\w+)\1[ \t]*\n(?P<body>.*)\n\2\s*", re.S)
+MCP_CLI = re.compile(r"\b(codex|claude)\b.*\bmcp\b")
 CONFIG_HINT = re.compile(
     r"(settings(\.local)?\.json|\.mcp\.json|\.claude\.json|/\.claude/|\.claude/|"
     r"\.agent-lint\.toml|\.claude-lint\.toml|\.git/hooks|ai-lint|ai_lint[/\\]|\.ai-lint\b|"
@@ -35,7 +36,8 @@ CONFIG_HINT = re.compile(
     re.I,
 )
 # Codex config keys the guard lets an agent change freely: model choice, cost, display, and the
-# persona fields of a custom agent. Keys it judges value by value are in CODEX_JUDGED_KEYS; a change
+# name/description of a custom agent. Instruction content (developer_instructions, compact_prompt,
+# project_doc_*) changes what the agent is told, so it is left to the human like instruction files. Keys it judges value by value are in CODEX_JUDGED_KEYS; a change
 # to any other key (profiles, providers, notify, apps, plugins, memories, keys newer than the
 # snapshot...) is left to the human, so an unknown key can never loosen the config (fail closed).
 CODEX_SAFE_KEYS = frozenset(
@@ -60,15 +62,11 @@ CODEX_SAFE_KEYS = frozenset(
         "check_for_update_on_startup",
         "suppress_unstable_features_warning",
         "disable_paste_burst",
-        "project_doc_max_bytes",
-        "project_doc_fallback_filenames",
         "tool_output_token_limit",
-        "compact_prompt",
         "history",
         "name",
         "description",
         "nickname_candidates",
-        "developer_instructions",
     }
 )
 CODEX_JUDGED_KEYS = frozenset(
@@ -106,6 +104,10 @@ BASH_WRITE_HINT = re.compile(
     r"\btruncate\b|\bdd\b|\binstall\b|\bpython3?\b|\bnode\b|\bruby\b|\bjq\b.*>|\bgit\s+(checkout|restore|apply|stash)|"
     r"\bapply_?patch\b|\bpatch\b)"
 )
+
+
+class GuardDeadline(BaseException):  # noqa: N818 - not an Exception: no `except Exception` on the way can swallow it
+    """The guard ran out of time; run_guard turns it into a block."""
 
 
 class GuardChecker:
@@ -481,7 +483,7 @@ class GuardChecker:
         previous ones left (a virtual state keyed by real path); each change is judged, and so is
         the final text of every touched file against the disk. On a guarded file the rebuilt text
         must be certain (strict match), else the call is blocked."""
-        patcher = CodexPatch()
+        patcher = CodexPatch()  # one work budget for the whole call, not one per section
         try:
             patcher.check_wrapper(ti.get("command"))
             ops = patcher.parse(ti.get("command"))
@@ -493,7 +495,7 @@ class GuardChecker:
         virtual: dict[Path, str | None | object] = {}
         shown: dict[Path, Path] = {}
         for op in ops:
-            reason = self._patch_op_reason(op, cwd, virtual, shown)
+            reason = self._patch_op_reason(op, cwd, virtual, shown, patcher)
             if reason:
                 return reason
         for real, final in virtual.items():
@@ -515,7 +517,12 @@ class GuardChecker:
         return None
 
     def _patch_op_reason(
-        self, op: PatchOp, cwd: Path, virtual: dict[Path, str | None | object], shown: dict[Path, Path]
+        self,
+        op: PatchOp,
+        cwd: Path,
+        virtual: dict[Path, str | None | object],
+        shown: dict[Path, Path],
+        patcher: CodexPatch,
     ) -> str | None:
         src = self._resolve(op.path, cwd)
         dst = self._resolve(op.move_to, cwd) if op.move_to else None
@@ -554,7 +561,7 @@ class GuardChecker:
             try:
                 # Strict on every file: a looser rebuild is not trusted, even if a later section moves the
                 # file to a guarded path. An unguarded file that only rebuilds loosely becomes unknown.
-                new = CodexPatch().apply_update(old, op.chunks, strict=True)
+                new = patcher.apply_update(old, op.chunks, strict=True)
             except PatchError as e:
                 if guarded:
                     return f"guard: cannot verify the patch to {src} ({e}); blocking by default"
@@ -597,6 +604,14 @@ class GuardChecker:
             return f"guard: {path} needs validation ({content_reason})"
         return None
 
+    @staticmethod
+    def _mcp_cli_change(cmd: str) -> bool:
+        """True when a shell segment runs `codex ... mcp` or `claude ... mcp` with anything but list/get."""
+        for segment in re.split(r"[;&|\n`]+|\$\(", cmd):
+            if MCP_CLI.search(segment) and not re.search(r"\bmcp\s+(list|get)(\s|$)", segment):
+                return True
+        return False
+
     def _command_reason(self, cmd: str, cwd: Path | None = None) -> str | None:
         linter = r"\S*(prism-ai-lint\.py|prism_ai_lint[/\\]_engine\.py)"
         if re.fullmatch(rf"\s*(rtk\s+)?(\S*python[\d.]*\s+)?{linter}(\s+[\w\-./=~:]+)*\s*", cmd):
@@ -614,7 +629,7 @@ class GuardChecker:
             if m is None or CodexPatch.BEGIN not in m.group("body"):
                 return "guard: run patches as `apply_patch <<'EOF' ... EOF` alone, so they can be verified"
             return self._patch_reason({"command": m.group("body")}, cwd or Path(os.getcwd()))
-        if MCP_CLI.search(cmd):
+        if self._mcp_cli_change(cmd):
             return "guard: adding or removing MCP servers is left to the human (codex mcp / claude mcp)"
         if CONFIG_HINT.search(cmd) and BASH_WRITE_HINT.search(cmd):
             return (
@@ -802,8 +817,9 @@ class GuardChecker:
                 for key in sorted(set(a) | set(b), key=str)
                 if key not in CODEX_MCP_SAFE_FIELDS and key not in judged and a.get(key) != b.get(key)
             ]
-            if set(b.get("env") or {}) == set(a.get("env") or {}) and (a.get("env") or {}) != (b.get("env") or {}):
-                v.append(f"MCP server {name!r} env changed")
+            env_a, env_b = self._table(a.get("env")), self._table(b.get("env"))
+            if any(k not in env_a or env_a[k] != val for k, val in env_b.items()):
+                v.append(f"MCP server {name!r} env added or changed")
         return v
 
     def _codex_feature_violations(self, old: Any, new: Any) -> list[str]:
@@ -916,7 +932,7 @@ class GuardChecker:
 
     @staticmethod
     def _deadline(signum: int, frame: Any) -> None:
-        raise TimeoutError(f"no decision within {GUARD_DEADLINE} s")
+        raise GuardDeadline(f"no decision within {GUARD_DEADLINE} s")
 
     def run_guard(
         self,
@@ -931,7 +947,7 @@ class GuardChecker:
         try:
             data = json.load(sys.stdin if stdin is None else stdin)
             reason = (self.guard_check if check is None else check)(data if isinstance(data, dict) else {})
-        except Exception as e:  # noqa: BLE001 - fail closed: any internal error blocks
+        except (Exception, GuardDeadline) as e:  # noqa: BLE001 - fail closed: any internal error blocks
             reason = f"guard: internal error, blocking by default ({e.__class__.__name__}: {e})"
         finally:
             if armed:
