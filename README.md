@@ -44,9 +44,22 @@ For maintainers:
 
 ## Install
 
-No runtime dependencies (Python >= 3.13). Install from this repository, pinned to a release tag.
+No runtime dependencies (Python >= 3.13).
 
-> Not published on PyPI yet: install from GitHub as shown below.
+### With pip (PyPI)
+
+```sh
+pipx install prism-ai-lint        # or: pip install prism-ai-lint
+prism-ai-lint --help
+```
+
+### With Docker
+
+```sh
+docker run --rm -v "$PWD:/w" chrysa/prism-ai-lint .
+```
+
+The image runs as a non-root user and lints the mounted directory.
 
 ### With pip (from GitHub)
 
