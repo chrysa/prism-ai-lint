@@ -47,7 +47,7 @@ Expected terminal line: `traces in repo: 0`.
 
 ## Report-only checkers
 
-`tests/test_mod_checker.py`, `test_env_checker.py`, `test_permission_rules_checker.py`, `test_other_tools_checker.py`, `test_claude_files_checker.py` and `test_hook_interpreter_scripts.py` build a
+`tests/test_mod_checker.py`, `test_env_checker.py`, `test_permission_rules_checker.py`, `test_other_tools_checker.py`, `test_surfaces_checker.py`, `test_claude_files_checker.py` and `test_hook_interpreter_scripts.py` build a
 small tree in `tmp_path`, run one checker and compare the `(level, code)` set; a clean tree must report nothing. `test_audit_mode.py`
 covers `--audit`, `--report` and `--force` end to end (read-only, report outside the repo, deny rules kept).
 `test_codex_checker.py` does the same for Codex layers, `test_codex_parsers.py` covers the `.rules` and `apply_patch`
