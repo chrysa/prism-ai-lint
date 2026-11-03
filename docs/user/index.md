@@ -7,9 +7,10 @@ re-sent to the model on **every** request. prism-ai-lint measures that always-lo
 biggest contributors, and removes or restructures what does not earn its place. It also repairs
 broken configuration and refuses any change that would loosen permissions.
 
-It reads the configuration of Claude Code and of other agent tools: `CLAUDE.md`, `AGENTS.md`,
-`.github/copilot-instructions.md` (Copilot), `.cursorrules` (Cursor), `.windsurfrules`
-(Windsurf) and `GEMINI.md` (Gemini CLI).
+It reads Claude Code and Codex configuration natively (`CLAUDE.md`, `AGENTS.md`, `.claude/`,
+`.codex/`) and can make both tools enforce the same rules: see [Claude Code and Codex](codex.md).
+It also reads the instruction files of other agent tools: `.github/copilot-instructions.md`
+(Copilot), `.cursorrules` (Cursor), `.windsurfrules` (Windsurf) and `GEMINI.md` (Gemini CLI).
 
 ## What you get
 
