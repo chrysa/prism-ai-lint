@@ -1,58 +1,133 @@
-# Pre-commit hooks for prism-ai-lint. Install with `make pre-commit-install`,
-# run manually with `make pre-commit`. Mirrors the CI gate so a green local
-# commit stays green in CI.
 default_language_version:
-  python: python3
-
+  python: python3.14
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
-    hooks:
-      - id: trailing-whitespace
-      - id: end-of-file-fixer
-      - id: check-yaml
-      - id: check-toml
-      - id: check-json
-      - id: check-added-large-files
-        args: ["--maxkb=512"]
-      - id: check-merge-conflict
-      - id: detect-private-key
-      - id: no-commit-to-branch
-        args: ["--branch", "main"]
-
-  - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.0
-    hooks:
-      - id: ruff
-        name: ruff (lint)
-        args: ["--fix"]
-        files: ^(prism_ai_lint/|prism-ai-lint\.py|tests/)
-      - id: ruff-format
-        name: ruff (format)
-        files: ^(prism_ai_lint/|prism-ai-lint\.py|tests/)
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.14.1
-    hooks:
-      - id: mypy
-        name: mypy (engine + CLI)
-        pass_filenames: false
-        # mypy reads its file list and config from pyproject [tool.mypy].
-        args: ["--config-file", "pyproject.toml"]
-        additional_dependencies: ["types-PyYAML"]
-
-  - repo: local
-    hooks:
-      # Fail on a real attribution trace or leaked secret introduced in-repo.
-      - id: prism-ai-lint-selfcheck
-        name: prism-ai-lint selfcheck (no in-repo traces/secrets)
-        entry: python3 tests/_selfcheck.py
-        language: system
-        pass_filenames: false
-        always_run: true
-      # The tool must never gain assistant/AI attribution.
-      - id: no-ai-attribution
-        name: no assistant/AI attribution in staged files
-        entry: python3 -c "import subprocess,sys,re; d=subprocess.run(['git','diff','--cached','--'],capture_output=True,text=True).stdout; pat=re.compile(r'(?i)co-authored-by:.*(claude|anthropic|copilot)|generated with .{0,20}(claude|copilot)'); bad=[l for l in d.splitlines() if l.startswith('+') and pat.search(l)]; sys.exit(bad and (print('attribution trace staged:', *bad, sep=chr(10)) or 1) or 0)"
-        language: system
-        pass_filenames: false
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v5.0.0
+  hooks:
+  - id: trailing-whitespace
+  - id: end-of-file-fixer
+  - id: check-yaml
+  - id: check-toml
+  - id: check-json
+  - id: check-added-large-files
+    args:
+    - --maxkb=512
+  - id: check-merge-conflict
+  - id: detect-private-key
+  - id: no-commit-to-branch
+    args:
+    - --branch
+    - main
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.14.0
+  hooks:
+  - id: ruff
+    name: ruff (lint)
+    args:
+    - --fix
+    files: ^(prism_ai_lint/|prism-ai-lint\.py|tests/)
+  - id: ruff-format
+    name: ruff (format)
+    files: ^(prism_ai_lint/|prism-ai-lint\.py|tests/)
+- repo: https://github.com/pre-commit/mirrors-mypy
+  rev: v1.14.1
+  hooks:
+  - id: mypy
+    name: mypy (engine + CLI)
+    pass_filenames: false
+    args:
+    - --config-file
+    - pyproject.toml
+    additional_dependencies:
+    - types-PyYAML
+- repo: local
+  hooks:
+  - id: prism-ai-lint-selfcheck
+    name: prism-ai-lint selfcheck (no in-repo traces/secrets)
+    entry: python3 tests/_selfcheck.py
+    language: system
+    pass_filenames: false
+    always_run: true
+  - id: no-ai-attribution
+    name: no assistant/AI attribution in staged files
+    entry: python3 -c "import subprocess,sys,re; d=subprocess.run(['git','diff','--cached','--'],capture_output=True,text=True).stdout;
+      pat=re.compile(r'(?i)co-authored-by:.*(claude|anthropic|copilot)|generated with
+      .{0,20}(claude|copilot)'); bad=[l for l in d.splitlines() if l.startswith('+')
+      and pat.search(l)]; sys.exit(bad and (print('attribution trace staged:', *bad,
+      sep=chr(10)) or 1) or 0)"
+    language: system
+    pass_filenames: false
+- repo: https://github.com/igorshubovych/markdownlint-cli
+  rev: v0.48.0
+  hooks:
+  - args:
+    - --fix
+    id: markdownlint
+    stages:
+    - manual
+- repo: https://github.com/chrysa/pre-commit-tools
+  rev: v0.2.0-253
+  hooks:
+  - id: makefile-check
+  - exclude: ^(\.github/|workflows/|templates/|docker-compose)|(^|/)(pnpm-lock|yarn|uv|poetry)\.(yaml|lock)$|(^|/)\.pre-commit-config\.yaml$
+    id: yaml-sorter
+  - id: json-sorter
+  - id: env-file-check
+  - id: env-example-sync
+  - id: adr-gate
+  - id: claude-skill-frontmatter
+  - id: claude-agent-frontmatter
+  - id: claude-mcp-config
+  - id: debugger-detection
+    exclude: (^|/)tests?/|^(README\.md|docs/)
+  - id: python-print-detection
+    exclude: (^|/)tests?/|^(README\.md|docs/)|(^|/)quality_gate\.py$|^\.claude/ape/
+  - id: python-pprint-detection
+    exclude: (^|/)tests?/|^(README\.md|docs/)|(^|/)quality_gate\.py$|^\.claude/ape/
+  - id: no-bare-except
+  - id: python-logger-detection
+    exclude: (^|/)tests?/|^(README\.md|docs/)
+  - id: python-unreachable-code
+  - id: python-no-unittest-import
+  - id: python-untyped-raise
+    exclude: (^|/)tests?/
+  - id: python-mutable-default
+  - id: python-dispatch-ladder
+  - id: claude-assets-present
+  - id: no-hardcoded-localhost
+    exclude: tests?/|\.test\.|\.spec\.
+  - id: regression-gate
+    stages:
+    - pre-push
+- repo: https://github.com/gitleaks/gitleaks
+  rev: v8.30.0
+  hooks:
+  - id: gitleaks
+- repo: https://github.com/compilerla/conventional-pre-commit
+  rev: v4.4.0
+  hooks:
+  - id: conventional-pre-commit
+    stages:
+    - commit-msg
+    args:
+    - feat
+    - fix
+    - docs
+    - style
+    - refactor
+    - test
+    - chore
+    - perf
+    - revert
+    - ci
+- repo: https://github.com/chrysa/guideline-checker
+  rev: v1.30.10
+  hooks:
+  - id: guideline-check
+    args:
+    - check
+    - --fail-on
+    - error
+    - --baseline
+    - .guideline-baseline.json
+exclude: (^|/)quality_gate\.py$|^\.claude/ape/
