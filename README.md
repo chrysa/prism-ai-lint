@@ -34,7 +34,7 @@ Two layers: `prism-ai-lint.py` for deterministic checks (safe to run in CI), and
 
 ## Documentation
 
-**User guide: <https://chrysa.github.io/prism-ai-lint/>** (install, token savings, checks, configuration, CI, guarded sessions).
+**User guide: <https://chrysa.github.io/prism-ai-lint/>** (install, token savings, checks, configuration, CI, guarded sessions, Claude Code and Codex).
 
 For maintainers:
 
