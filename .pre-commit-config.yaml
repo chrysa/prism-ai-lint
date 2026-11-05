@@ -81,7 +81,8 @@ repos:
   - id: debugger-detection
     exclude: (^|/)tests?/|^(README\.md|docs/)
   - id: python-print-detection
-    exclude: (^|/)tests?/|^(README\.md|docs/)|(^|/)quality_gate\.py$|^\.claude/ape/
+    # prism-ai-lint is a CLI: its report, prompts and warnings go to stdout/stderr by design.
+    exclude: (^|/)tests?/|^(README\.md|docs/)|(^|/)quality_gate\.py$|^\.claude/ape/|^prism_ai_lint/|^prism-ai-lint\.py$|^examples/
   - id: python-pprint-detection
     exclude: (^|/)tests?/|^(README\.md|docs/)|(^|/)quality_gate\.py$|^\.claude/ape/
   - id: no-bare-except

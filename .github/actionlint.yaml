@@ -1,5 +1,6 @@
 config-variables:
   - GITHUB_TOKEN
+  - DOCKERHUB_USERNAME
 self-hosted-runner:
   labels:
     - ubuntu-22.04

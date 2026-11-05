@@ -109,7 +109,7 @@ BASH_WRITE_HINT = re.compile(
 )
 
 
-class GuardDeadline(BaseException):  # noqa: N818 - not an Exception: no `except Exception` on the way can swallow it
+class GuardDeadline(BaseException):
     """The guard ran out of time; run_guard turns it into a block."""
 
 
@@ -207,7 +207,7 @@ class GuardChecker:
             v.append(f"defaultMode set to {pn.get('defaultMode')!r}")
         for k in ("disableBypassPermissionsMode", "disableAutoMode"):
             if po.get(k) and pn.get(k) != po.get(k):
-                v.append(f"{k} relaxed")
+                v.append(f"{k} relaxed")  # noqa: PERF401
         if set(pn.get("additionalDirectories") or []) - set(po.get("additionalDirectories") or []):
             v.append("additionalDirectories extended")
         return v
@@ -268,7 +268,7 @@ class GuardChecker:
             "enabledPlugins",
         ):
             if new.get(k) not in (None, old.get(k)):
-                v.append(f"{k} added or changed (executes code)")
+                v.append(f"{k} added or changed (executes code)")  # noqa: PERF401
         attr = new.get("attribution")
         if isinstance(attr, dict) and any(attr.get(k) for k in ("commit", "pr")):
             v.append("attribution re-enabled")
@@ -301,7 +301,7 @@ class GuardChecker:
         tok = lambda s: {t for t in re.split(r"[\s,\[\]]+", s or "") if t}
         for key in ("allowed-tools", "tools", "allowed_tools", "allowedTools"):
             if tok(mn.get(key)) - tok(mo.get(key)):
-                v.append(f"{key} extended")
+                v.append(f"{key} extended")  # noqa: PERF401
         if mo.get("disable-model-invocation", "").lower() in ("true", "yes", "on", "1") and mn.get(
             "disable-model-invocation", ""
         ).lower() not in ("true", "yes", "on", "1"):
@@ -341,7 +341,7 @@ class GuardChecker:
         n.pop("reference", None)
         return [] if o == n else ["only the [reference] table may change"]
 
-    def protected_path(self, p: Path) -> str | None:
+    def protected_path(self, p: Path) -> str | None:  # noqa: C901, PLR0911
         rp = p.resolve()
         # Compared case-insensitively: on macOS and WSL /mnt/c, .GIT/HOOKS reaches .git/hooks.
         s, name = str(rp).casefold(), rp.name.casefold()
@@ -397,7 +397,7 @@ class GuardChecker:
             return f"guard: {label} must stay strict JSON ({e})"
         return (o if isinstance(o, dict) else {}), (n if isinstance(n, dict) else {})
 
-    def guard_check(self, data: dict) -> str | None:
+    def guard_check(self, data: dict) -> str | None:  # noqa: PLR0911
         """Return a block reason, or None to let the normal permission flow decide."""
         tool = data.get("tool_name", "")
         ti = data.get("tool_input") or {}
@@ -479,7 +479,7 @@ class GuardChecker:
                 return "guard: assistant attribution is forbidden"
         return None
 
-    def _patch_reason(self, ti: dict, cwd: Path) -> str | None:
+    def _patch_reason(self, ti: dict, cwd: Path) -> str | None:  # noqa: C901, PLR0911
         """Judge a Codex apply_patch call as the Writes it amounts to.
 
         Codex applies the file sections one after another, so each section starts from the text the
@@ -519,7 +519,7 @@ class GuardChecker:
                     return reason
         return None
 
-    def _patch_op_reason(
+    def _patch_op_reason(  # noqa: C901, PLR0911, PLR0912
         self,
         op: PatchOp,
         cwd: Path,
@@ -617,7 +617,7 @@ class GuardChecker:
                 return True
         return False
 
-    def _command_reason(self, cmd: str, cwd: Path | None = None) -> str | None:
+    def _command_reason(self, cmd: str, cwd: Path | None = None) -> str | None:  # noqa: PLR0911
         linter = r"\S*(prism-ai-lint\.py|prism_ai_lint[/\\]_engine\.py)"
         if re.fullmatch(rf"\s*(rtk\s+)?(\S*python[\d.]*\s+)?{linter}(\s+[\w\-./=~:]+)*\s*", cmd):
             human_only = r"--session-settings\b|--policy\b|\s-i\b|--interactive\b|--full-yes\b|--plugin-dir\b"
@@ -666,7 +666,7 @@ class GuardChecker:
         except (OSError, RuntimeError):
             return False
 
-    def _validator_for(self, path: Path) -> tuple[str, str, Callable[..., list[str] | str]] | None:
+    def _validator_for(self, path: Path) -> tuple[str, str, Callable[..., list[str] | str]] | None:  # noqa: PLR0911
         """(format, label, validator) for a structured config file the guard judges, else None."""
         name, parent = path.name.casefold(), path.parent
         pname = parent.name.casefold()
@@ -718,7 +718,7 @@ class GuardChecker:
             return f"guard: cannot verify {label}: no TOML parser available"
         try:
             o = self.tomllib.loads(old) if old.strip() else {}
-        except Exception:  # noqa: BLE001 - a broken file on disk must not block its repair
+        except Exception:  # noqa: BLE001
             o = {}
         try:
             n = self.tomllib.loads(new)
@@ -783,7 +783,7 @@ class GuardChecker:
             v.append("sandbox_workspace_write.network_access enabled")
         for key in ("exclude_slash_tmp", "exclude_tmpdir_env_var"):
             if o.get(key) is True and n.get(key) is not True:
-                v.append(f"sandbox_workspace_write.{key} turned off")
+                v.append(f"sandbox_workspace_write.{key} turned off")  # noqa: PERF401
         if set(map(str, n.get("writable_roots") or [])) - set(map(str, o.get("writable_roots") or [])):
             v.append("sandbox_workspace_write.writable_roots extended")
         return v
@@ -952,7 +952,7 @@ class GuardChecker:
         try:
             data = json.load(sys.stdin if stdin is None else stdin)
             reason = (self.guard_check if check is None else check)(data if isinstance(data, dict) else {})
-        except (Exception, GuardDeadline) as e:  # noqa: BLE001 - fail closed: any internal error blocks
+        except (Exception, GuardDeadline) as e:  # noqa: BLE001
             reason = f"guard: internal error, blocking by default ({e.__class__.__name__}: {e})"
         finally:
             if armed:

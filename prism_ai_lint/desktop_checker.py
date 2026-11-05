@@ -27,7 +27,7 @@ class DesktopChecker:
         if any(p.is_symlink() for p in [path, *path.parents]):
             return ""
         try:
-            if path.stat().st_size > 256_000:
+            if path.stat().st_size > 256_000:  # noqa: PLR2004
                 return ""
             return path.read_text(encoding="utf-8", errors="replace")
         except OSError:

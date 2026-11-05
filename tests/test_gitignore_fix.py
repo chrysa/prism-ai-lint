@@ -13,7 +13,7 @@ def test_existing_gitignore_append_is_an_edit(linter_module, tmp_path):
     gi = tmp_path / ".gitignore"
     # Must be a registered edit (apply() writes edits; it skips new_files that exist).
     assert gi in rep.edits
-    old, new = rep.edits[gi]
+    _old, new = rep.edits[gi]
     assert "*.pem" in new and "node_modules/" in new  # appended, original kept
     assert new.startswith("node_modules/")
 

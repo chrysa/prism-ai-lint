@@ -121,4 +121,3 @@ updates:
                   - patch
       cooldown:
           default-days: 7
-

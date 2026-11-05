@@ -118,7 +118,7 @@ class ProjectProfiler:
         self._note(signals, bool(make_targets), "make:" + ",".join(make_targets[:5]))
         return signals
 
-    def _classify(self, stack: dict[str, Any], pyproject: str, standards: bool) -> tuple[str, str]:
+    def _classify(self, stack: dict[str, Any], pyproject: str, standards: bool) -> tuple[str, str]:  # noqa: PLR0911
         has_cli_entry = "[project.scripts]" in pyproject or any(
             p.name.endswith(".py") and "-" in p.stem for p in self.repo.glob("*.py")
         )

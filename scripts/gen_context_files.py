@@ -59,10 +59,23 @@ NA = "(not available)"
 # Directories never walked for the tree / key-dirs: version control, dependency and build
 # vendoring, tool caches. Everything volatile lives here, so excluding it keeps the output
 # byte-stable between runs.
-EXCLUDE_DIRS = frozenset({
-    "node_modules", ".venv", "venv", "dist", "build", "target", "coverage", "htmlcov",
-    "__pycache__", ".pnpm-store", "site-packages", ".terraform", "vendor",
-})
+EXCLUDE_DIRS = frozenset(
+    {
+        "node_modules",
+        ".venv",
+        "venv",
+        "dist",
+        "build",
+        "target",
+        "coverage",
+        "htmlcov",
+        "__pycache__",
+        ".pnpm-store",
+        "site-packages",
+        ".terraform",
+        "vendor",
+    }
+)
 # Hidden top-level dirs are volatile caches (.mypy_cache, .pytest_cache, .gitnexus, …) —
 # excluded wholesale except this allowlist of meaningful ones.
 DOTDIR_ALLOWLIST = frozenset({".github", ".claude"})
@@ -213,11 +226,13 @@ def list_adrs(root: Path) -> list[dict]:
     records: list[dict] = []
     for path in sorted(adr_dir.glob("*.md"), key=lambda p: p.name):
         text = _read_text(path) or ""
-        records.append({
-            "file": path.name,
-            "title": _first_h1(text) or path.stem,
-            "status": _adr_status(text),
-        })
+        records.append(
+            {
+                "file": path.name,
+                "title": _first_h1(text) or path.stem,
+                "status": _adr_status(text),
+            }
+        )
     return records
 
 
@@ -246,7 +261,7 @@ def latest_changelog(root: Path) -> str:
     if start is None:
         return NA
     body: list[str] = [lines[start].strip()]
-    for line in lines[start + 1:]:
+    for line in lines[start + 1 :]:
         if line.startswith("## "):
             break
         if line.strip():
@@ -271,7 +286,9 @@ def _tracked_files(root: Path) -> list[str] | None:
     try:
         result = subprocess.run(
             ["git", "-C", str(root), "ls-files", "-z"],
-            capture_output=True, text=True, check=True,
+            capture_output=True,
+            text=True,
+            check=True,
         )
     except (OSError, subprocess.CalledProcessError):
         return None
@@ -333,11 +350,7 @@ def dependencies(pyproject: dict, pkg: dict) -> dict:
         for spec in specs or []:
             if isinstance(spec, str):
                 python.add(_dep_name(spec))
-    node = {
-        str(name)
-        for key in ("dependencies", "devDependencies")
-        for name in (pkg.get(key, {}) or {})
-    }
+    node = {str(name) for key in ("dependencies", "devDependencies") for name in (pkg.get(key, {}) or {})}
     result: dict[str, list[str]] = {}
     if python:
         result["python"] = sorted(python)
@@ -349,8 +362,14 @@ def dependencies(pyproject: dict, pkg: dict) -> dict:
 def contracts(root: Path) -> list[str]:
     """Declared-contract artefacts present in the repo (OpenAPI, schemas, the canon), sorted."""
     known = (
-        "openapi.yaml", "openapi.yml", "openapi.json", "asyncapi.yaml",
-        "schemas", "contracts", "proto", "standards",
+        "openapi.yaml",
+        "openapi.yml",
+        "openapi.json",
+        "asyncapi.yaml",
+        "schemas",
+        "contracts",
+        "proto",
+        "standards",
     )
     return sorted(name for name in known if (root / name).exists())
 
@@ -613,8 +632,7 @@ def main() -> int:
         for line in drifted:
             sys.stderr.write(f"  - {line}\n")
         sys.stderr.write(
-            "run `make gen-context-files` "
-            "(or `python -m scripts.gen_context_files`) and commit the result.\n"
+            "run `make gen-context-files` (or `python -m scripts.gen_context_files`) and commit the result.\n"
         )
         return 1
     return 0

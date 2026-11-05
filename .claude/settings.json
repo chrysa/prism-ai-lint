@@ -4,7 +4,54 @@
     "commit": "",
     "pr": ""
   },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "args": [
+              "${CLAUDE_PROJECT_DIR}/.claude/hooks/format.py"
+            ],
+            "command": "python3",
+            "timeout": 30,
+            "type": "command"
+          }
+        ],
+        "matcher": "Edit|Write"
+      }
+    ]
+  },
   "permissions": {
+    "allow": [
+      "Bash(rtk git status *)",
+      "Bash(rtk git diff *)",
+      "Bash(rtk git log *)",
+      "Bash(rtk git show *)",
+      "Bash(rtk git branch *)",
+      "Bash(rtk git add *)",
+      "Bash(rtk git commit *)",
+      "Bash(rtk make check)",
+      "Bash(rtk make fmt)",
+      "Bash(rtk make help)",
+      "Bash(rtk make lint)",
+      "Bash(rtk make test)",
+      "Bash(rtk pytest *)",
+      "Bash(rtk python -m pytest *)",
+      "Bash(rtk ruff check *)",
+      "Bash(rtk ruff format *)",
+      "Bash(rtk mypy *)",
+      "Bash(rtk gh pr view *)",
+      "Bash(rtk gh pr list *)",
+      "Bash(rtk gh pr diff *)",
+      "Bash(rtk gh pr checks *)",
+      "Bash(rtk gh issue view *)",
+      "Bash(rtk gh issue list *)",
+      "Bash(rtk gh run list *)",
+      "Bash(rtk gh run view *)",
+      "Bash(rtk make typecheck)",
+      "Bash(rtk make build)",
+      "Bash(rtk make format)"
+    ],
     "ask": [
       "Bash(git push *)",
       "Bash(gh pr create *)",
@@ -43,53 +90,6 @@
       "Read(**/dist/**)",
       "Read(**/*.min.js)",
       "Read(**/*.map)"
-    ],
-    "allow": [
-      "Bash(rtk git status *)",
-      "Bash(rtk git diff *)",
-      "Bash(rtk git log *)",
-      "Bash(rtk git show *)",
-      "Bash(rtk git branch *)",
-      "Bash(rtk git add *)",
-      "Bash(rtk git commit *)",
-      "Bash(rtk make check)",
-      "Bash(rtk make fmt)",
-      "Bash(rtk make help)",
-      "Bash(rtk make lint)",
-      "Bash(rtk make test)",
-      "Bash(rtk pytest *)",
-      "Bash(rtk python -m pytest *)",
-      "Bash(rtk ruff check *)",
-      "Bash(rtk ruff format *)",
-      "Bash(rtk mypy *)",
-      "Bash(rtk gh pr view *)",
-      "Bash(rtk gh pr list *)",
-      "Bash(rtk gh pr diff *)",
-      "Bash(rtk gh pr checks *)",
-      "Bash(rtk gh issue view *)",
-      "Bash(rtk gh issue list *)",
-      "Bash(rtk gh run list *)",
-      "Bash(rtk gh run view *)",
-      "Bash(rtk make typecheck)",
-      "Bash(rtk make build)",
-      "Bash(rtk make format)"
-    ]
-  },
-  "hooks": {
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python3",
-            "args": [
-              "${CLAUDE_PROJECT_DIR}/.claude/hooks/format.py"
-            ],
-            "timeout": 30
-          }
-        ]
-      }
     ]
   }
 }

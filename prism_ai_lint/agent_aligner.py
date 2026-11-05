@@ -201,7 +201,7 @@ class AgentAligner:
                 "--convert-from claude --convert-to codex --apply-conversion --approve-conversion, then reduce "
                 "CLAUDE.md to '@AGENTS.md'",
             )
-        elif ctext is not None and atext is not None and len(body) >= 3:
+        elif ctext is not None and atext is not None and len(body) >= 3:  # noqa: PLR2004
             imports = {ref for ref, _ in import_targets(claude, ctext)} if claude else set()
             if any(ref.endswith("AGENTS.md") for ref in imports):
                 rep.add(
@@ -432,7 +432,7 @@ class AgentAligner:
         for group in groups if isinstance(groups, list) else []:
             for h in (group.get("hooks") or []) if isinstance(group, dict) else []:
                 if isinstance(h, dict) and self._guard_cmd.mentions_guard(h):
-                    out.append(h)
+                    out.append(h)  # noqa: PERF401
         return out
 
     def _codex_guard(self, layer: Path) -> list[dict]:

@@ -21,7 +21,7 @@ class InlineSecretScanner:
             bare = re.sub(r"^(bearer|token|basic)\s+", "", v, flags=re.I)
             if bare.startswith("$"):
                 continue
-            if any(p.search(bare) for p in SECRET_VALUE_PATTERNS) or (SECRET_KEY_RE.search(k) and len(bare) >= 12):
+            if any(p.search(bare) for p in SECRET_VALUE_PATTERNS) or (SECRET_KEY_RE.search(k) and len(bare) >= 12):  # noqa: PLR2004
                 var = re.sub(r"[^A-Z0-9]+", "_", k.upper()).strip("_")
                 if k.lower() == "authorization" and "." in ctx:
                     var = re.sub(r"[^A-Z0-9]+", "_", ctx.split(".")[1].upper()) + "_TOKEN"

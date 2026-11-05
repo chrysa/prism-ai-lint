@@ -19,3 +19,6 @@ htmlcov/
 *.key
 secrets/
 .claude/settings.local.json
+
+# guideline-checker report (pre-commit output, regenerated each run)
+guideline-report.html

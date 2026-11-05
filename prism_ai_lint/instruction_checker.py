@@ -133,7 +133,7 @@ class InstructionChecker:
         self.check_imports(path, text, rep, policy, root)
         return text
 
-    def check_agents_md(self, repo: Path, policy: dict, rep: Report) -> None:
+    def check_agents_md(self, repo: Path, policy: dict, rep: Report) -> None:  # noqa: C901
         agents = next((p for p in (repo / "AGENTS.md", repo / ".claude/AGENTS.md") if p.exists()), None)
         claude = next((p for p in (repo / "CLAUDE.md", repo / ".claude/CLAUDE.md") if p.exists()), None)
         local = repo / "CLAUDE.local.md"
@@ -200,7 +200,7 @@ class InstructionChecker:
                     f"no '{pol['generated_marker']}' header: hand-edited render",
                 )
 
-    def check_rules(self, root: Path, rep: Report, project_root: Path | None) -> None:
+    def check_rules(self, root: Path, rep: Report, project_root: Path | None) -> None:  # noqa: C901
         rules = root / "rules"
         if not rules.is_dir():
             return

@@ -36,7 +36,7 @@ class SkillAgentChecker:
     def __init__(self, instructions: InstructionChecker) -> None:
         self._instructions = instructions
 
-    def check_skill(self, d: Path, policy: dict, rep: Report) -> str | None:
+    def check_skill(self, d: Path, policy: dict, rep: Report) -> str | None:  # noqa: C901, PLR0912, PLR0915
         rep.stats["skills"] = rep.stats.get("skills", 0) + 1
         pol = policy["skills"]
         name_re = re.compile(pol["name_pattern"])
@@ -213,7 +213,7 @@ class SkillAgentChecker:
             log(2, f"skill {d.name}: " + ", ".join([*renames.values(), *updates]), 2)
         return d.name
 
-    def check_agent_assets(self, root: Path, policy: dict, rep: Report, scope: str, project_root: Path | None) -> None:
+    def check_agent_assets(self, root: Path, policy: dict, rep: Report, scope: str, project_root: Path | None) -> None:  # noqa: C901, PLR0912
         skills = root / "skills"
         names: set[str] = set()
         if skills.is_dir():
@@ -242,7 +242,7 @@ class SkillAgentChecker:
             for f in files:
                 self.check_subagent(f, rep)
             for field_name, paths in sorted(rep.agent_unknown.items()):
-                if len(paths) >= 10:
+                if len(paths) >= 10:  # noqa: PLR2004
                     log(
                         1,
                         f"pack convention field {field_name!r} in {len(paths)} subagents "
@@ -266,7 +266,7 @@ class SkillAgentChecker:
                     rep.add("info", "COMMAND_FRONTMATTER", f, "no description (first line is used)")
         self._instructions.check_rules(root, rep, project_root)
 
-    def check_subagent(self, f: Path, rep: Report) -> None:
+    def check_subagent(self, f: Path, rep: Report) -> None:  # noqa: C901, PLR0912
         rep.stats["subagents"] = rep.stats.get("subagents", 0) + 1
         text = read_text(f) or ""
         meta, offset = split_frontmatter(text)
