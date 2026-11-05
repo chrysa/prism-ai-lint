@@ -4,6 +4,34 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-040 · Codex is a first-class target; `--align` mirrors only what tightens
+Codex layers (`$CODEX_HOME` or `~/.codex`, project `.codex/`) are linted like Claude Code ones, against a 2026-11 snapshot
+of the Codex docs and `config-schema.json` (`_reference.py`). Codex checks are **report-only**: the stdlib reads TOML but
+cannot write it, and a hand-rolled TOML writer would risk corrupting user config. `.rules` files are Starlark: they are read
+with `ast.literal_eval`, never executed, and anything non-literal is reported (lint) or blocked (guard). The guard handles
+Codex `apply_patch` by rebuilding the edited text; on guarded files a chunk must match exactly once, so the judged text
+is the written text. `--align` is opt-in: it adds the parity checks and, with `--fix`, writes only deny/ask mirrors
+(`forbidden`/`prompt` rules in a marked `prism-ai-lint.rules`, `Bash()` deny/ask in Claude Code), a `Read()` deny on
+`~/.codex/auth.json`, and the canonical guard hook of this installation into a **new** `.codex/hooks.json` (an
+existing hook command is never copied, and nothing is written through a symlink). The Codex guard replays `apply_patch`
+sections in order like codex-rs and treats any uncertainty on a guarded file as a block; Codex config keys work on an
+allowlist, so a key newer than the snapshot cannot loosen anything unnoticed. Copying MCP servers, skills or subagents adds a
+capability, and instruction files are critical content, so those stay report-only with the next step. **Why:** owner request
+(2026-11-02) for native Claude Code + Codex support and a way to make both enforce the same rules; never-loosen still
+holds on both sides. **Reverse:** set `[codex] enabled = false`; drop `--align` to keep the two tools independent.
+
+## D-039 · Published with Trusted Publishing to PyPI and as a Docker Hub image
+A release on `main` is built once and published from the same workflow: TestPyPI, then PyPI
+through Trusted Publishing (OIDC, no stored token), then the image `docker.io/chrysa/prism-ai-lint`
+(`<version>` and `latest`) built from that wheel. **Why:** owner decision (2026-10-28): open-source
+tools ship through PyPI and a public Docker Hub image; GHCR stays for internal images. A release
+created with `github.token` does not start other workflows, hence one workflow. Licensed
+Apache-2.0 and the `ai-lint` aliases of D-028 dropped in v2.0.0, so the published package does not
+clash with the unrelated `ai-lint`. **How to apply:** the PyPI and TestPyPI projects trust
+`release.yml` with the environments `pypi` and `testpypi`; Docker Hub uses the repository variable
+`DOCKERHUB_USERNAME` and secret `DOCKERHUB_TOKEN`. Supersedes the `PYPI_API_TOKEN` path of D-020
+and D-028. **Reverse:** remove the publish jobs; published versions can only be yanked.
+
 ## D-038 · Session-link trailers are assistant attribution
 A `Claude-Session:` trailer linking the commit to the assistant session that wrote it is attribution, like
 `Co-Authored-By`. It is matched in files and history (`ATTR_TRACE` / `ATTR_HISTORY`), the generated commit-msg hook strips
@@ -334,5 +362,9 @@ This is non-negotiable — see [docs/FIXER_POLICY.md](docs/FIXER_POLICY.md) and
 ## Open questions
 - Publication (PyPI package / GitHub Action / Docker image) vs repo-local: currently
   repo-local (clone + run; `make docker-test` only for CI). Revisit if external adoption grows.
-- Cursor `.cursor/rules/*.mdc` directory form (only the legacy `.cursorrules` file is
-  checked today).
+- Cursor `.cursor/rules/*.mdc` frontmatter and size are checked (`CURSOR_*`); whether the
+  other Cursor files need checks is open.
+- The docs snapshot in `_reference.py` is dated 2026-09. The October 2026 changes (headless
+  default permission mode, `Task(Name)` rules) come from the public changelog and third-party
+  roundups: refresh the snapshot from the official settings page, with the date, before
+  treating `HEADLESS_NO_PERMISSION_MODE` as more than a hint.

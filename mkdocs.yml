@@ -37,4 +37,5 @@ nav:
   - Configuration: configuration.md
   - Pre-commit and CI: automation.md
   - Guarded sessions: guard.md
+  - Claude Code and Codex: codex.md
   - Custom checks: plugins.md

@@ -19,6 +19,7 @@ prism-ai-lint --print-policy > .prism-ai-lint.toml
 | `[generate]` | what `--generate` creates: skills, agents, MCP servers, extra allow/ask/deny |
 | `[critical]` | `extra_files`: repository files that need human validation in guarded sessions |
 | `[profile]` | `standards_markers`: paths that mark a standards repository |
+| `[codex]` | Codex linting on or off, maximum `model_reasoning_effort`, extra `config.toml` keys; see [Claude Code and Codex](codex.md) |
 
 ## CLI defaults: `[flags]`
 

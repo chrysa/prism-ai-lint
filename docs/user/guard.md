@@ -19,6 +19,12 @@ The guard blocks any change that would:
 - modify the linter itself, its plugins or its policy, or run options reserved to the human
   (`--policy`, `-i`, `--full-yes`, `--plugin-dir`, `--generate --fix`).
 
+**Codex**: add the same command as a `PreToolUse` hook with `matcher = "Bash|apply_patch"` in
+`.codex/hooks.json` (or let `prism-ai-lint . --align --fix` create it from the Claude Code hook),
+then trust it in `/hooks`. `apply_patch` edits are rebuilt and judged like a Write; Codex
+`config.toml`, custom agents, `hooks.json` and `.rules` cannot be loosened; `auth.json` and
+`requirements.toml` are protected.
+
 The guard fails closed: any internal error blocks the action. It never runs code from the
 repository (no plugins, no catalogue) before a tool call.
 

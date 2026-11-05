@@ -4,7 +4,7 @@
 No third-party dependencies. Python >= 3.13.
 
 Rules follow the official Claude Code documentation (settings, permissions,
-hooks, memory, skills, tools reference) as of 2026-09, plus known upstream
+hooks, memory, skills, tools reference) as of 2026-10, plus known upstream
 issues. The settings schema moves fast: unknown keys are reported as info,
 never as errors, and every finding carries a reference link at -v.
 
@@ -91,8 +91,14 @@ from prism_ai_lint._reference import (
     AGENT_FIELDS,
     AGENTS_SKELETON,
     ATTRIBUTION_PATTERNS,
+    CLAUDE_DOCS,
+    CODEX_DOCS_SNAPSHOT,
+    CODEX_HOOK_EVENTS,
+    CODEX_KNOWN_KEYS,
+    CODEX_MCP_FIELDS,
     COMMIT_MSG_HOOK,
     CURRENT_MODELS,
+    DOCS_SNAPSHOT,
     HOOK_SIGNATURE,
     KNOWN_HOOK_EVENTS,
     KNOWN_SETTINGS_KEYS,
@@ -106,6 +112,7 @@ from prism_ai_lint._reference import (
     PRIMARY_PARAMS,
     PROJECT_DEAD_KEYS,
     READONLY_BUILTINS,
+    REMOVED_SETTINGS_KEYS,
     RULE_ONLY_TOOLS,
     SECRET_REDACT_RE,
     SECRETS_GITIGNORE,
@@ -118,6 +125,7 @@ from prism_ai_lint._reference import (
     safe_model,
 )
 from prism_ai_lint._runtime import (
+    SKIPPED_READS,
     _loc,
     _writable,
     add_gitignore,
@@ -132,10 +140,14 @@ from prism_ai_lint._runtime import (
     read_text,
     state,
 )
+from prism_ai_lint.agent_aligner import AgentAligner
 from prism_ai_lint.agent_contract import AgentContract
-from prism_ai_lint.agent_converter import ADAPTERS, AgentConverter
+from prism_ai_lint.agent_converter import ADAPTERS, ECOSYSTEMS, AgentConverter, canonical
 from prism_ai_lint.ape_hook_checker import ApeHookChecker
 from prism_ai_lint.claude_files_checker import ClaudeFilesChecker
+from prism_ai_lint.codex_checker import CodexChecker
+from prism_ai_lint.codex_layer import CodexLayer
+from prism_ai_lint.codex_messages import CODEX_BRIEF_EN, CODEX_BRIEF_FR, CODEX_HINTS
 from prism_ai_lint.compression_checker import CompressionChecker
 from prism_ai_lint.config_flags import ConfigFlags
 from prism_ai_lint.content_validation import CriticalContentValidator as CriticalContentValidator
@@ -153,7 +165,9 @@ from prism_ai_lint.issue_reporter import Anonymizer, IssueReporter, local_identi
 from prism_ai_lint.llmtrim_checker import LlmtrimChecker
 from prism_ai_lint.mcp_checker import McpChecker
 from prism_ai_lint.mod_checker import ModChecker
+from prism_ai_lint.other_tools_checker import OtherToolsChecker
 from prism_ai_lint.pdf_checker import PdfChecker
+from prism_ai_lint.permission_rules_checker import PermissionRulesChecker
 from prism_ai_lint.plugin_registry import PluginRegistry
 from prism_ai_lint.portfolio_checker import PortfolioChecker
 from prism_ai_lint.project_profile import ProjectProfiler
@@ -162,6 +176,7 @@ from prism_ai_lint.restore_log import RestoreLog as RestoreLog
 from prism_ai_lint.secret_scan import InlineSecretScanner
 from prism_ai_lint.self_update import SelfUpdater
 from prism_ai_lint.skill_agent_checker import SkillAgentChecker
+from prism_ai_lint.surfaces_checker import SurfacesChecker
 from prism_ai_lint.terminal_view import Tty
 from prism_ai_lint.tui_app import TuiApp
 from prism_ai_lint.tui_services import TuiServices
@@ -197,7 +212,7 @@ def _detect_version() -> str:
 
 
 VERSION = _detect_version()
-DOCS = "https://code.claude.com/docs/en/"
+DOCS = CLAUDE_DOCS
 ISSUES = "https://github.com/anthropics/claude-code/issues/"
 
 # --------------------------------------------------------------------------- #
@@ -391,6 +406,12 @@ DEFAULT_POLICY: dict[str, Any] = {
         ],
     },
     "mcp": {"max_servers": 6},
+    # Codex (OpenAI) configuration: ~/.codex ($CODEX_HOME) and project .codex/ layers.
+    "codex": {
+        "enabled": True,  # lint Codex config.toml, hooks, rules, custom agents and skills when present
+        "max_effort": "high",  # model_reasoning_effort above this is a token lever (CODEX_EFFORT_HIGH)
+        "extra_keys": [],  # config.toml keys newer than the built-in snapshot
+    },
     "portfolio": {"min_projects": 5},  # a pack copied into at least this many scanned projects is reported
     # Reference data extensions: the ONLY table an audit agent may edit (the guard enforces it).
     # Lets the linter follow new docs (keys, events, tools, fields) without code changes.
@@ -1471,6 +1492,9 @@ _SECRETS = InlineSecretScanner()
 _HOOKS = HookChecker(check_env_secrets=_SECRETS.check_env_secrets)
 _MODS = ModChecker()
 _ENV = EnvChecker()
+_PERMISSION_RULES = PermissionRulesChecker()
+_OTHER_TOOLS = OtherToolsChecker()
+_SURFACES = SurfacesChecker()
 _CLAUDE_FILES = ClaudeFilesChecker()
 _APE_HOOK = ApeHookChecker()
 
@@ -1500,7 +1524,11 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
         if k not in KNOWN_SETTINGS_KEYS and k != "mcpServers":
             close = difflib.get_close_matches(k, KNOWN_SETTINGS_KEYS, n=1, cutoff=0.8)
             hint = f"; did you mean {close[0]!r}?" if close else " (schema may be newer)"
-            rep.add("info", "SETTINGS_UNKNOWN_KEY", path, f"unrecognised key {k!r}{hint} (docs snapshot 2026-09)")
+            rep.add(
+                "info", "SETTINGS_UNKNOWN_KEY", path, f"unrecognised key {k!r}{hint} (docs snapshot {DOCS_SNAPSHOT})"
+            )
+        if k in REMOVED_SETTINGS_KEYS:
+            rep.add("info", "SETTINGS_REMOVED_KEY", path, f"{k}: {REMOVED_SETTINGS_KEYS[k]}; it does nothing")
         if scope == "project" and k in PROJECT_DEAD_KEYS:
             # A key a project settings file cannot set (managed-settings only) is
             # dead here: removing it changes nothing at runtime and only ever
@@ -1603,6 +1631,7 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
     new = move_settings_mcp(new, base, path, rep, scope)
 
     _ENV.check(new, path, rep)
+    _PERMISSION_RULES.check(new, path, rep, base)
     if isinstance(new.get("env"), dict):
         new["env"] = _SECRETS.check_env_secrets(new["env"], path, rep, "env", "remove")
         if not new["env"] and data.get("env"):
@@ -1635,6 +1664,8 @@ _SKILLS = SkillAgentChecker(_INSTRUCTIONS)
 
 
 _MCP = McpChecker(_SECRETS)
+_CODEX = CodexChecker(_SECRETS)
+HINTS.update(CODEX_HINTS)
 
 
 # --------------------------------------------------------------------------- #
@@ -1774,6 +1805,70 @@ HINTS.update(
         "TOKEN_LISTING_BUDGET": (
             "Skill and subagent descriptions are sent every turn; manual-only skills can drop out of that listing.",
             DOCS + "skills",
+        ),
+        "SETTINGS_REMOVED_KEY": (
+            "The docs list this key as removed: the parser accepts it, but it has no effect any more.",
+            DOCS + "settings",
+        ),
+        "TASK_RULE_UNKNOWN_AGENT": (
+            "A Task(Name) permission rule only acts on a subagent of that name; with no such agent it protects or allows nothing.",
+            DOCS + "sub-agents",
+        ),
+        "PLUGIN_SOURCE_UNPINNED": (
+            "A marketplace fetched from a moving branch can change what runs in the session; pin a tag or a commit.",
+            DOCS + "plugin-marketplaces",
+        ),
+        "GEMINI_AUTO_APPROVE": (
+            "Auto-approving tool calls removes the confirmation step; keep it to disposable environments.",
+            "https://geminicli.com/docs/",
+        ),
+        "GEMINI_TRUST_OFF": (
+            "With folder trust off, a cloned repository can load project settings, extensions and hooks unreviewed.",
+            "https://geminicli.com/docs/",
+        ),
+        "GEMINI_HOOKS_ON": (
+            "Hooks are experimental and run commands on events; review each hook of a project or extension.",
+            "https://geminicli.com/docs/hooks/",
+        ),
+        "CURSOR_RULE_NO_FRONTMATTER": (
+            "A .mdc rule needs frontmatter (description, globs or alwaysApply) to be picked up as intended.",
+            "https://docs.cursor.com/context/rules",
+        ),
+        "CURSOR_RULE_ALWAYS_LARGE": (
+            "An always-applied rule is part of every request; a large one costs tokens each time.",
+            "https://docs.cursor.com/context/rules",
+        ),
+        "HEADLESS_SKIP_PERMISSIONS": (
+            "Skipping every permission check in CI lets a prompt injection run any command with the job's secrets.",
+            DOCS + "headless",
+        ),
+        "HEADLESS_NO_PERMISSION_MODE": (
+            "A headless run has nobody to answer a prompt; set a permission mode or allow rules so it does not stall.",
+            DOCS + "headless",
+        ),
+        "VSCODE_CLAUDE_BYPASS": (
+            "A committed extension setting that skips permission checks applies to everyone who opens the folder.",
+            DOCS + "vs-code",
+        ),
+        "CLAUDE_ACTION_UNPINNED": (
+            "A tag can move; an action that holds repository secrets and write access should be pinned to a commit.",
+            "https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions",
+        ),
+        "CLAUDE_ACTION_OPEN_USERS": (
+            "allowed_non_write_users = * lets anyone who can comment start an agent run that holds the job's secrets.",
+            "https://github.com/anthropics/claude-code-action",
+        ),
+        "AGENT_CLI_UNPINNED": (
+            "A CLI installed from a moving version changes behaviour, permissions and prompts between builds.",
+            DOCS + "setup",
+        ),
+        "CODEX_TRUST_BROAD": (
+            "Trusting a home or root directory makes every project below it load its project config.",
+            "https://developers.openai.com/codex/security",
+        ),
+        "FILE_NOT_SCANNED": (
+            "A file that is not a regular file or is far larger than any config is skipped, not treated as clean; review it by hand.",
+            DOCS + "settings",
         ),
         "ENV_WEAKENS_SECURITY": (
             "These variables switch off a safety prompt or protection of the shell tool or the managed environment.",
@@ -5126,6 +5221,7 @@ SECTION_TITLES = {
     "broken": "2. CASSÉ : configuré mais ne fonctionne pas",
     "tokens": "3. TOKENS : ce qui alourdit chaque session",
     "dups": "4. DOUBLONS",
+    "align": "5. CLAUDE CODE <-> CODEX : ce qu'un outil a et pas l'autre",
 }
 BRIEF_EN = {
     "GRAPHIFY_MISSING": ("other", "Graphify CLI not found", "install Graphify or drop --graphify"),
@@ -5289,11 +5385,15 @@ BRIEF_EN = {
         "put it in a shared plugin",
     ),
 }
+
+BRIEF_FR.update(CODEX_BRIEF_FR)
+BRIEF_EN.update(CODEX_BRIEF_EN)
 SECTION_TITLES_EN = {
     "security": "1. SECURITY AND PORTFOLIO RULES (handle first)",
     "broken": "2. BROKEN: configured but not working",
     "tokens": "3. TOKENS: what weighs on every session",
     "dups": "4. DUPLICATES",
+    "align": "5. CLAUDE CODE <-> CODEX: what one tool has and the other lacks",
 }
 
 
@@ -5412,7 +5512,7 @@ def render_brief(rep: Report, fixed: list[Finding], fix: bool, repos_count: int,
     for f in rep.findings:
         by_code.setdefault(f.code, []).append(f)
     shown: set[str] = set()
-    for section in ("security", "broken", "tokens", "dups"):
+    for section in ("security", "broken", "tokens", "dups", "align"):
         rows = []
         for code, (sec, what, todo) in brief_table().items():
             if sec != section or code not in by_code:
@@ -5489,7 +5589,7 @@ def render_brief(rep: Report, fixed: list[Finding], fix: bool, repos_count: int,
         out += [
             "",
             f"{b}"
-            + _loc("5. LE RESTE", "5. THE REST")
+            + _loc("6. LE RESTE", "6. THE REST")
             + f"{r0} : "
             + _loc(
                 f"{len(rest)} remarque(s) mineure(s) ({joined}) : voir --details",
@@ -6051,6 +6151,17 @@ def scaffold_user(policy: dict, rep: Report) -> None:
 # --------------------------------------------------------------------------- #
 
 
+def _aligner() -> AgentAligner:
+    """Claude Code <-> Codex parity checks for --align; built on demand (it uses generation helpers)."""
+    return AgentAligner(
+        split_rule=split_rule,
+        trailing_wildcard=trailing_wildcard,
+        write_json_merged=write_json_merged,
+        gen_new_file=gen_new_file,
+        config_dir=config_dir,
+    )
+
+
 def check_portfolio(repos: list[Path], policy: dict, rep: Report) -> None:
     """Report agents and skills copied identically into many of the scanned projects."""
     for pack in PortfolioChecker(policy["portfolio"]["min_projects"]).packs(repos):
@@ -6072,6 +6183,13 @@ def lint_user(policy: dict, rep: Report, repos: list[Path]) -> str | None:
     log(1, f"user scope: {home}")
     if state.scaffold:
         scaffold_user(policy, rep)
+    if policy["codex"]["enabled"]:
+        _CODEX.check_user(policy, rep)
+        codex_doc = CodexLayer.home() / "AGENTS.md"
+        if codex_doc.is_file():
+            _INSTRUCTIONS.check_instruction_file(codex_doc, "user", policy, rep, None)
+    if state.align:
+        _aligner().check_user(rep)
     if not home.is_dir():
         rep.add("info", "USER_SCOPE_ABSENT", home, "no user-scope configuration")
         return None
@@ -6151,6 +6269,10 @@ def lint_repo(repo: Path, policy: dict, rep: Report, history: bool, user_text: s
             f"user defaultMode={user_mode} may be dropped by this project's permissions block",
         )
     _MCP.check_mcp(repo / ".mcp.json", rep, policy)
+    if policy["codex"]["enabled"]:
+        _CODEX.check_repo(repo, policy, rep)
+    if state.align:
+        _aligner().check_repo(repo, rep)
     _SKILLS.check_agent_assets(dot, policy, rep, "project", repo)
     check_output_styles(dot, rep)
     for proot in find_plugin_roots(repo):
@@ -6231,6 +6353,7 @@ def discover_repos(root: Path, max_depth: int = 3) -> list[Path]:
 
 
 def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history: bool, phase: str = "scan") -> Report:
+    SKIPPED_READS.clear()
     log(1, f"{phase}: starting across {len(repos)} repositories")
     rep = Report()
     user_text = lint_user(policy, rep, repos) if (args.user or args.user_only) else None
@@ -6251,6 +6374,8 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
         check_token_levers(r, policy, rep)
         _CLAUDE_FILES.check_repo(r, rep)
         _APE_HOOK.check_repo(r, rep)
+        _OTHER_TOOLS.check_repo(r, rep)
+        _SURFACES.check_repo(r, rep)
         check_scopes(r, policy, rep)
     if getattr(args, "generate", False):
         if args.user or args.user_only:
@@ -6268,6 +6393,8 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
     check_portfolio(repos, policy, rep)
     progress(len(repos), len(repos), "done", phase)
     log(1, f"{phase}: completed")
+    for skipped, why in sorted(SKIPPED_READS.items()):
+        rep.add("warn", "FILE_NOT_SCANNED", skipped, f"not read ({why}), so it was not checked")
     if isinstance(rep.budget, dict):
         rep.budget["potential"] = sum(_finding_gain(f) for f in rep.findings) + sum(p["gain"] for p in rep.proposals)
     return rep
@@ -6572,6 +6699,8 @@ def visible_findings(findings: list[Finding]) -> list[Finding]:
 
 
 CATEGORIES = [
+    ("CODEX_", "codex"),
+    ("ALIGN_", "alignment"),
     ("MOD_", "plugins"),
     ("ENV_", "settings"),
     ("PERM_", "permissions"),
@@ -6940,7 +7069,7 @@ def run_plugin_checks(scope: str, root: Path, policy: dict, rep: Report) -> None
 
 def dump_reference() -> dict:
     return {
-        "docs_snapshot": "2026-09",
+        "docs_snapshot": DOCS_SNAPSHOT,
         "settings_keys": sorted(KNOWN_SETTINGS_KEYS),
         "hook_events": sorted(KNOWN_HOOK_EVENTS),
         "tools": sorted(KNOWN_TOOLS),
@@ -6948,6 +7077,10 @@ def dump_reference() -> dict:
         "skill_fields": sorted(SKILL_FIELDS),
         "agent_fields": sorted(AGENT_FIELDS),
         "project_dead_keys": PROJECT_DEAD_KEYS,
+        "codex_docs_snapshot": CODEX_DOCS_SNAPSHOT,
+        "codex_config_keys": sorted(CODEX_KNOWN_KEYS),
+        "codex_hook_events": sorted(CODEX_HOOK_EVENTS),
+        "codex_mcp_fields": sorted(CODEX_MCP_FIELDS),
     }
 
 
@@ -6988,7 +7121,7 @@ def catalog_data() -> dict:
             "action_en": (BRIEF_EN.get(code) or ("", "", ""))[2],
         }
     return {
-        "docs_snapshot": "2026-09",
+        "docs_snapshot": DOCS_SNAPSHOT,
         "reference": {
             "settings_keys": sorted(KNOWN_SETTINGS_KEYS),
             "project_dead_keys": PROJECT_DEAD_KEYS,
@@ -7200,6 +7333,8 @@ def main(argv: list[str] | None = None) -> int:
             "$CLAUDE_CONFIG_DIR)\n"
             "  prism-ai-lint.py ~/dev --user          every git repo under ~/dev, plus user scope\n"
             "  prism-ai-lint.py . --generate          preview config to generate for the stack\n"
+            "  prism-ai-lint.py . --align             report what Claude Code and Codex do not share\n"
+            "  prism-ai-lint.py . --align --fix       mirror deny/ask rules and the guard between them\n"
             "  prism-ai-lint.py . -i                  interactive review (duplicates, packs, "
             "restructurings)\n"
             "  prism-ai-lint.py . --full-yes          apply repairs and local review actions without prompts\n"
@@ -7230,10 +7365,16 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--user-only", action="store_true", help="check user scope only")
     ap.add_argument(
         "--convert-to",
-        choices=("claude", "codex", "agents"),
+        choices=ECOSYSTEMS,
         help="preview an agent contract conversion; never writes files",
     )
-    ap.add_argument("--convert-from", choices=("claude", "codex", "agents"), help="source ecosystem for --convert-to")
+    ap.add_argument("--convert-from", choices=ECOSYSTEMS, help="source ecosystem for --convert-to")
+    ap.add_argument(
+        "--align",
+        action="store_true",
+        help="also check Claude Code <-> Codex parity (instructions, deny/ask rules, guard hook, MCP, skills, "
+        "subagents, effort); with --fix, mirror deny/ask rules and the guard hook (tightening only)",
+    )
     ap.add_argument(
         "--apply-conversion",
         action="store_true",
@@ -7409,6 +7550,9 @@ def main(argv: list[str] | None = None) -> int:
         args.no_update_check = True
     if args.convert_from and not args.convert_to:
         ap.error("--convert-from requires --convert-to")
+    args.convert_to, args.convert_from = canonical(args.convert_to), canonical(args.convert_from)
+    if args.align and (args.convert_to or args.guard):
+        ap.error("--align cannot be combined with conversion or guard mode")
     if args.convert_to:
         if args.fix or args.generate or args.user or args.user_only or args.guard or args.restore is not None:
             ap.error("conversion preview cannot be combined with writing or user/guard/restore modes")
@@ -7440,6 +7584,7 @@ def main(argv: list[str] | None = None) -> int:
         return restore_trash(args.restore or None)
     state.verbosity, state.scaffold, state.show_all = args.verbose, not args.no_scaffold, args.all
     state.show_diff = args.diff
+    state.align = args.align
     CHANGE_LOG.clear()
     state.min_level = args.min_level
     # Progress bar by default: interactive stderr, no -v (which logs per repo),
