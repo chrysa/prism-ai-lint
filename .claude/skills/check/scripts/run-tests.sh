@@ -16,7 +16,7 @@ elif [ -f docker-compose.yml ] || [ -f compose.yml ]; then
 elif [ -f Cargo.toml ]; then
     cargo check && cargo test
 elif [ -f tsconfig.json ]; then
-    npx tsc --noEmit && npm test
+    npx --no-install tsc --noEmit && npm test
 elif [ -f package.json ] && grep -q '"test"' package.json; then
     npm test
 elif [ -f pytest.ini ] || [ -f pyproject.toml ] || find . -maxdepth 2 -name "test_*.py" | grep -q .; then
