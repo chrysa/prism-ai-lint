@@ -165,5 +165,5 @@ jobs:
           platforms: linux/amd64
           push: true
           tags: |
-            docker.io/chrysa/prism-ai-lint:${{ steps.tags.outputs.version }}
-            docker.io/chrysa/prism-ai-lint:latest
+            docker.io/chrys4/prism-ai-lint:${{ steps.tags.outputs.version }}
+            docker.io/chrys4/prism-ai-lint:latest

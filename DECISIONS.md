@@ -33,7 +33,7 @@ holds on both sides. **Reverse:** set `[codex] enabled = false`; drop `--align` 
 
 ## D-039 · Published with Trusted Publishing to PyPI and as a Docker Hub image
 A release on `main` is built once and published from the same workflow: TestPyPI, then PyPI
-through Trusted Publishing (OIDC, no stored token), then the image `docker.io/chrysa/prism-ai-lint`
+through Trusted Publishing (OIDC, no stored token), then the image `docker.io/chrys4/prism-ai-lint`
 (`<version>` and `latest`) built from that wheel. **Why:** owner decision (2026-10-28): open-source
 tools ship through PyPI and a public Docker Hub image; GHCR stays for internal images. A release
 created with `github.token` does not start other workflows, hence one workflow. Licensed

@@ -58,7 +58,7 @@ prism-ai-lint --help
 ### With Docker
 
 ```sh
-docker run --rm -v "$PWD:/w" chrysa/prism-ai-lint .
+docker run --rm -v "$PWD:/w" chrys4/prism-ai-lint .
 ```
 
 The image runs as a non-root user and lints the mounted directory.
