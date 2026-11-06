@@ -83,7 +83,7 @@ def read_text(p: Path) -> str | None:
         text = p.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return None
-    if len(_READ_CACHE) > 20000:  # bound memory on huge scans
+    if len(_READ_CACHE) > 20000:  # bound memory on huge scans  # noqa: PLR2004
         _READ_CACHE.clear()
     _READ_CACHE[key] = text
     return text
@@ -102,7 +102,7 @@ def config_dir() -> Path:
     return Path(os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude"))
 
 
-def lenient_json(raw: str) -> tuple[Any, bool]:
+def lenient_json(raw: str) -> tuple[Any, bool]:  # noqa: C901
     """Parse JSON; on failure retry without BOM, comments and trailing commas."""
     try:
         return json.loads(raw), False

@@ -101,7 +101,7 @@ class ClaudeFilesChecker:
             paths += sorted(rules.rglob("*.md"))
         return [p for p in paths if p.is_file()]
 
-    def _dead_references(self, repo: Path, rep: Report) -> None:
+    def _dead_references(self, repo: Path, rep: Report) -> None:  # noqa: C901
         makefile = repo / "Makefile"
         targets = _make_targets(makefile) if makefile.is_file() else None
         scripts = _package_scripts(repo / "package.json") if (repo / "package.json").is_file() else None

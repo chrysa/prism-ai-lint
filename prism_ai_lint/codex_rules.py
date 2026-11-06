@@ -15,6 +15,7 @@ import json
 import re
 import shlex
 import tokenize
+from typing import ClassVar
 
 from prism_ai_lint.prefix_rule import PrefixRule
 from prism_ai_lint.rules_parse_error import RulesParseError
@@ -23,7 +24,7 @@ from prism_ai_lint.rules_parse_error import RulesParseError
 class CodexRules:
     # Least to most restrictive; Codex applies the most restrictive matching decision.
     DECISIONS = ("allow", "prompt", "forbidden")
-    STRICTNESS = {d: i for i, d in enumerate(DECISIONS)}
+    STRICTNESS: ClassVar[dict[str, int]] = {d: i for i, d in enumerate(DECISIONS)}
     MAX_EXPANSION = 32  # a union pattern expanding to more prefixes than this is not read
     KEYWORDS = frozenset({"pattern", "decision", "justification", "match", "not_match"})
 
@@ -84,7 +85,7 @@ class CodexRules:
         raise RulesParseError(f"line {line}: match examples must be strings or lists of strings")
 
     @staticmethod
-    def _rule_from_call(node: ast.Call) -> list[PrefixRule]:
+    def _rule_from_call(node: ast.Call) -> list[PrefixRule]:  # noqa: C901
         line = node.lineno
         if not (isinstance(node.func, ast.Name) and node.func.id == "prefix_rule"):
             raise RulesParseError(f"line {line}: only prefix_rule() calls are read")

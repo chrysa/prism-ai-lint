@@ -48,7 +48,7 @@ class UpdateFollowUp:
         lines = [line for line in out.splitlines() if line.strip()]
         if len(lines) > MAX_CHANGELOG_LINES:
             extra = len(lines) - MAX_CHANGELOG_LINES
-            lines = lines[:MAX_CHANGELOG_LINES] + [f"... and {extra} more (git log {old_sha[:12]}..{new_sha[:12]})"]
+            lines = [*lines[:MAX_CHANGELOG_LINES], f"... and {extra} more (git log {old_sha[:12]}..{new_sha[:12]})"]
         return lines
 
     def command_for(self, target: str) -> list[str] | None:

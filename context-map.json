@@ -1,0 +1,37 @@
+{
+  "adrs": [],
+  "contracts": [
+    "standards"
+  ],
+  "ddd_level": "(not available)",
+  "dependencies": {
+    "python": [
+      "PyYAML",
+      "mkdocs",
+      "mkdocs-material",
+      "mypy",
+      "pre-commit",
+      "pytest",
+      "pytest-cov",
+      "ruff"
+    ]
+  },
+  "depends_on_shared_standards": true,
+  "description": "Cut the tokens AI coding agents burn on every request: lint, repair and guard their configuration.",
+  "entry_points": [
+    "prism-ai-lint"
+  ],
+  "key_directories": [
+    ".claude",
+    ".devcontainer",
+    ".github",
+    "docs",
+    "examples",
+    "prism_ai_lint",
+    "skills",
+    "tests"
+  ],
+  "name": "prism-ai-lint",
+  "profiles": [],
+  "schema": "chrysa.context-map/1"
+}

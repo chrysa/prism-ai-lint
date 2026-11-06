@@ -9,7 +9,7 @@ applied from the end. With `strict`, a chunk must match exactly, its text must o
 whole file under the loosest comparison, and no two chunks may touch the same place, so the
 rebuilt text cannot depend on a detail where two readings could differ."""
 
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import re
 from collections.abc import Callable
@@ -17,6 +17,7 @@ from collections.abc import Callable
 from prism_ai_lint.patch_chunk import PatchChunk
 from prism_ai_lint.patch_error import PatchError
 from prism_ai_lint.patch_op import PatchOp
+import itertools
 
 
 class CodexPatch:
@@ -75,7 +76,7 @@ class CodexPatch:
         if tail and tail != (head.group(3) or ""):
             raise PatchError("unexpected text after '*** End Patch'")
 
-    def _parse_chunk(self, lines: list[str], i: int, first: bool, path: str) -> tuple[PatchChunk, int]:
+    def _parse_chunk(self, lines: list[str], i: int, first: bool, path: str) -> tuple[PatchChunk, int]:  # noqa: C901
         line = lines[i]
         if line == "@@":
             chunk, i = PatchChunk(), i + 1
@@ -187,7 +188,7 @@ class CodexPatch:
                     break
         return found
 
-    def apply_update(self, old: str, chunks: list[PatchChunk], strict: bool = False) -> str:
+    def apply_update(self, old: str, chunks: list[PatchChunk], strict: bool = False) -> str:  # noqa: C901, PLR0912
         """The file text Codex writes after `chunks`. The work budget is shared by every call on this
         instance, so one guard decision stays bounded however many sections a patch has."""
         lines = old.split("\n")
@@ -220,7 +221,7 @@ class CodexPatch:
             cursor = at + len(pattern)
         ordered = sorted(replacements, key=lambda r: r[0])  # stable, as Codex sorts them
         if strict:
-            for (a, size, _), (b, _, _) in zip(ordered, ordered[1:], strict=False):
+            for (a, size, _), (b, _, _) in itertools.pairwise(ordered):
                 if b < a + max(size, 1):
                     raise PatchError("two chunks change the same place; the result depends on their order")
         for at, size, new in reversed(ordered):  # Codex applies the sorted list from the end

@@ -31,7 +31,7 @@ def register(api):
     @api.check("EXAMPLE_USER_TOO_MANY_AGENTS", scope="user")
     def _too_many_agents(ctx):
         agents = ctx.glob("agents/**/*.md")
-        if len(agents) > 200:
+        if len(agents) > 200:  # noqa: PLR2004
             ctx.add(
                 "info",
                 "EXAMPLE_USER_TOO_MANY_AGENTS",

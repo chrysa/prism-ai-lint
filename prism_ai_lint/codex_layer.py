@@ -66,5 +66,5 @@ class CodexLayer:
             for group in groups if isinstance(groups, list) else []:
                 for handler in (group.get("hooks") or []) if isinstance(group, dict) else []:
                     if isinstance(handler, dict) and isinstance(handler.get("command"), str):
-                        out.append((event, handler["command"]))
+                        out.append((event, handler["command"]))  # noqa: PERF401
         return out

@@ -217,7 +217,7 @@ def test_json_interactive_flag_keeps_noninteractive_contract(env):
 
 
 def test_existing_skill_destination_is_not_overwritten(review, monkeypatch, capsys):
-    mod, repo, _cfg, _policy, _report = review
+    _mod, repo, _cfg, _policy, _report = review
     path = repo / "CLAUDE.md"
     old = "# Project\n\n## Deployment\nRun tests before deploying.\n"
     path.write_text(old)
@@ -297,7 +297,7 @@ def test_critical_diff_redacts_secrets(review, monkeypatch, capsys):
 
 
 def test_split_skill_restores_original_and_reference_file(review, monkeypatch):
-    mod, repo, _cfg, _policy, _report = review
+    _mod, repo, _cfg, _policy, _report = review
     skill = repo / ".claude" / "skills" / "demo" / "SKILL.md"
     skill.parent.mkdir(parents=True)
     old = (

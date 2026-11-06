@@ -68,7 +68,7 @@ def test_user_layers_are_not_repeated_in_every_repo(linter_module, tmp_path, mon
 
 
 def test_user_double_is_reported_once_at_user_scope(linter_module, tmp_path, monkeypatch):
-    _, home = _cfg(tmp_path, monkeypatch, {**RTK, **TRIM}, {})
+    _, _home = _cfg(tmp_path, monkeypatch, {**RTK, **TRIM}, {})
     rep = linter_module.Report()
     linter_module.lint_user(linter_module.load_policy(None, [tmp_path]), rep, [])
     assert [f.code for f in rep.findings if f.code == "COMPRESSION_DOUBLE"] == ["COMPRESSION_DOUBLE"]

@@ -32,7 +32,7 @@ class CompressionChecker:
 
     def advice(self, layers: list[str]) -> str | None:
         """One finding message when two or more layers are active, else None."""
-        if len(layers) < 2:
+        if len(layers) < 2:  # noqa: PLR2004
             return None
         return (
             f"{' + '.join(layers)} are all configured: they may compress the same traffic twice "

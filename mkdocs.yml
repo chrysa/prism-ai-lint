@@ -1,41 +1,44 @@
-site_name: prism-ai-lint
-site_description: Cut the tokens your AI coding agents burn on every request, without weakening their safety.
-site_url: https://chrysa.github.io/prism-ai-lint/
-repo_url: https://github.com/chrysa/prism-ai-lint
-repo_name: chrysa/prism-ai-lint
-edit_uri: edit/main/docs/user/
 docs_dir: docs/user
-site_dir: .reports/site
-strict: true
-
-theme:
-  name: material
-  features:
-    - navigation.sections
-    - content.code.copy
-    - search.suggest
-  palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      toggle: {icon: material/weather-night, name: Dark mode}
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      toggle: {icon: material/weather-sunny, name: Light mode}
-
+edit_uri: edit/main/docs/user/
 markdown_extensions:
-  - admonition
-  - tables
-  - toc: {permalink: true}
-  - pymdownx.highlight
-  - pymdownx.superfences
-
+- admonition
+- tables
+- toc:
+    permalink: true
+- pymdownx.highlight
+- pymdownx.superfences
 nav:
-  - Home: index.md
-  - Quick start: quickstart.md
-  - Token savings: tokens.md
-  - What it checks: checks.md
-  - Configuration: configuration.md
-  - Pre-commit and CI: automation.md
-  - Guarded sessions: guard.md
-  - Claude Code and Codex: codex.md
-  - Custom checks: plugins.md
+- Home: index.md
+- Quick start: quickstart.md
+- Token savings: tokens.md
+- What it checks: checks.md
+- Configuration: configuration.md
+- Pre-commit and CI: automation.md
+- Guarded sessions: guard.md
+- Claude Code and Codex: codex.md
+- Custom checks: plugins.md
+repo_name: chrysa/prism-ai-lint
+repo_url: https://github.com/chrysa/prism-ai-lint
+site_description: Cut the tokens your AI coding agents burn on every request, without
+  weakening their safety.
+site_dir: .reports/site
+site_name: prism-ai-lint
+site_url: https://chrysa.github.io/prism-ai-lint/
+strict: true
+theme:
+  features:
+  - navigation.sections
+  - content.code.copy
+  - search.suggest
+  name: material
+  palette:
+  - media: '(prefers-color-scheme: light)'
+    scheme: default
+    toggle:
+      icon: material/weather-night
+      name: Dark mode
+  - media: '(prefers-color-scheme: dark)'
+    scheme: slate
+    toggle:
+      icon: material/weather-sunny
+      name: Light mode

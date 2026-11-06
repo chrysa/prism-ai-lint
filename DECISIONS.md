@@ -4,6 +4,17 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-041 · chrysa shared standards adopted; legacy lint debt grandfathered, not hidden
+The shared-standards sync (ruff rule set, pre-commit hooks, Makefile contract, CI workflows) is adopted as is, with
+three repo-specific adjustments. The new ruff rules (complexity `C901`/`PLR09xx`, `PLR2004`, `PERF401`) are enforced
+on new code; the existing violations carry a `# noqa` written by `ruff check --add-noqa`, so each one stays visible
+and can be paid down one function at a time. `python-print-detection` skips `prism_ai_lint/`, `prism-ai-lint.py` and
+`examples/`: a CLI writes its report, prompts and warnings with `print` by design. The Makefile declares
+`makefile-tier: lib`, drops the forbidden `type-check` alias and adds `dev` and `test-cov`.
+**Why:** a ~9000-line procedural engine cannot be refactored to the new thresholds in a sync PR without risking the
+guard and permission logic; a blanket per-file ignore would hide new debt too. **Reverse when:** the engine is split
+enough that the grandfathered `noqa` comments can be removed.
+
 ## D-040 · Codex is a first-class target; `--align` mirrors only what tightens
 Codex layers (`$CODEX_HOME` or `~/.codex`, project `.codex/`) are linted like Claude Code ones, against a 2026-11 snapshot
 of the Codex docs and `config-schema.json` (`_reference.py`). Codex checks are **report-only**: the stdlib reads TOML but

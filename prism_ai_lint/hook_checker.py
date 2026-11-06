@@ -113,7 +113,7 @@ class HookChecker:
                 break
         return exe, rest
 
-    def check_matcher(self, event: str, matcher: Any, path: Path, rep: Report) -> Any:
+    def check_matcher(self, event: str, matcher: Any, path: Path, rep: Report) -> Any:  # noqa: C901
         if matcher in (None, "", "*"):
             return matcher
         if event in NO_MATCHER_EVENTS:
@@ -166,7 +166,7 @@ class HookChecker:
             )
         return matcher
 
-    def check_handler(self, event: str, h: dict, base: Path, path: Path, rep: Report, scope: str) -> dict | None:
+    def check_handler(self, event: str, h: dict, base: Path, path: Path, rep: Report, scope: str) -> dict | None:  # noqa: C901, PLR0912, PLR0915
         rep.stats["hook handlers"] = rep.stats.get("hook handlers", 0) + 1
         h = dict(h)
         htype = h.get("type")
@@ -311,7 +311,7 @@ class HookChecker:
                 f"{event}: {script.name} gates calls, but a crash or timeout lets them through (set onFailure: block)",
             )
 
-    def normalize_hook_entries(self, event: str, entries: Any, path: Path, rep: Report) -> list | None:
+    def normalize_hook_entries(self, event: str, entries: Any, path: Path, rep: Report) -> list | None:  # noqa: C901
         def as_group(obj: Any) -> dict | None:
             if isinstance(obj, str):
                 return {"hooks": [{"type": "command", "command": obj}]}

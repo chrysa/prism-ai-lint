@@ -71,9 +71,9 @@ from urllib.parse import urlparse
 if not __package__:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-import tomllib  # noqa: E402
+import tomllib
 
-from prism_ai_lint._markup import (  # noqa: E402
+from prism_ai_lint._markup import (
     frontmatter_block,
     frontmatter_of,
     import_targets,
@@ -930,7 +930,7 @@ def progress(done: int, total: int, label: str = "", phase: str = "scan") -> Non
     filled = int(width * done / total)
     bar = "█" * filled + "░" * (width - filled)
     end = "\n" if done >= total else ""
-    lbl = (label[:40] + "…") if len(label) > 41 else label
+    lbl = (label[:40] + "…") if len(label) > 41 else label  # noqa: PLR2004
     print(
         f"\r\033[2m  {phase} [{bar}] {done}/{total} {lbl}\033[0m\033[K{end}",
         end=end or "",
@@ -1050,7 +1050,7 @@ def trailing_wildcard(spec: str) -> tuple[str, str | None]:
     return s, None
 
 
-def covers(a: str, b: str) -> bool:
+def covers(a: str, b: str) -> bool:  # noqa: PLR0911
     """True if rule a matches everything rule b matches (a != b)."""
     if a == b:
         return False
@@ -1061,7 +1061,7 @@ def covers(a: str, b: str) -> bool:
     tb, sb = pb
     if ta.startswith("mcp__") and tb.startswith("mcp__") and sa is None and sb is None:
         base = ta[:-1] if ta.endswith("*") else ta + "__"
-        return tb.startswith(base) and ta.count("__") <= 2
+        return tb.startswith(base) and ta.count("__") <= 2  # noqa: PLR2004
     if ta != tb:
         return False
     if sa is None or sa.strip() in ("*", ":*"):
@@ -1120,7 +1120,7 @@ def rtk_twin(rule: str, exempt: list[str]) -> str | None:
     return f"Bash(rtk {spec})"
 
 
-def repair_rule(rule: Any, key: str, scope: str, path: Path, rep: Report, policy: dict) -> str | None:
+def repair_rule(rule: Any, key: str, scope: str, path: Path, rep: Report, policy: dict) -> str | None:  # noqa: C901, PLR0912, PLR0915
     """Normalize one rule; report each repair. Returns the new rule or None to drop it."""
 
     def note(level: str, code: str, msg: str, fixable: bool = True) -> None:
@@ -1251,7 +1251,7 @@ _PROMPT_SKIP_KEYS = (
 )
 
 
-def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, scope: str, sandbox_on: bool) -> dict:
+def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, scope: str, sandbox_on: bool) -> dict:  # noqa: C901, PLR0912, PLR0915
     pol = policy["permissions"]
     out = copy.deepcopy(perms)
     lists = {k: list(out.get(k, []) or []) for k in ("allow", "ask", "deny")}
@@ -1317,7 +1317,7 @@ def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, sco
                 f"allow: {r!r} allows any command run through {runner!r}; list exact inner commands",
             )
         tokens = cmd.split()
-        if tokens and (tokens[0].startswith("*") or (len(tokens) >= 2 and "*" in tokens[1])):
+        if tokens and (tokens[0].startswith("*") or (len(tokens) >= 2 and "*" in tokens[1])):  # noqa: PLR2004
             rep.add(
                 "warn",
                 "PERM_WILDCARD_EARLY",
@@ -1424,7 +1424,7 @@ def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, sco
                 path,
                 f"{key}: {len(shadowed)} rule(s) covered by broader ones: "
                 + ", ".join(shadowed[:5])
-                + (" ..." if len(shadowed) > 5 else ""),
+                + (" ..." if len(shadowed) > 5 else ""),  # noqa: PLR2004
                 True,
             )
             for b in shadowed:
@@ -1455,7 +1455,7 @@ def optimize_permissions(perms: dict, policy: dict, path: Path, rep: Report, sco
                     "warn",
                     "PERM_RTK_TWIN",
                     path,
-                    f"{key}: add rtk/non-rtk twins: " + ", ".join(twins[:4]) + (" ..." if len(twins) > 4 else ""),
+                    f"{key}: add rtk/non-rtk twins: " + ", ".join(twins[:4]) + (" ..." if len(twins) > 4 else ""),  # noqa: PLR2004
                     True,
                 )
                 rules.extend(dedupe(twins))
@@ -1499,7 +1499,7 @@ _CLAUDE_FILES = ClaudeFilesChecker()
 _APE_HOOK = ApeHookChecker()
 
 
-def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report) -> dict | None:
+def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report) -> dict | None:  # noqa: C901, PLR0912, PLR0915
     raw = read_text(path)
     if raw is None:
         log(2, f"{path}: absent", 1)
@@ -2066,7 +2066,7 @@ def move_settings_mcp(settings: dict, base: Path, path: Path, rep: Report, scope
     return {k: v for k, v in settings.items() if k != "mcpServers"}
 
 
-def check_plugin_dir(root: Path, rep: Report, policy: dict) -> None:
+def check_plugin_dir(root: Path, rep: Report, policy: dict) -> None:  # noqa: C901, PLR0912, PLR0915
     mf = root / ".claude-plugin" / "plugin.json"
     if root.resolve() in rep.seen:
         return
@@ -2191,7 +2191,7 @@ def check_plugin_dir(root: Path, rep: Report, policy: dict) -> None:
             pass
 
 
-def check_marketplace(root: Path, rep: Report, policy: dict) -> None:
+def check_marketplace(root: Path, rep: Report, policy: dict) -> None:  # noqa: C901
     mf = root / ".claude-plugin" / "marketplace.json"
     raw = read_text(mf)
     if raw is None:
@@ -2255,7 +2255,7 @@ def check_output_styles(root: Path, rep: Report) -> None:
             rep.add("info", "OUTPUT_STYLE", f, f"unrecognised field(s): {', '.join(unknown)}")
 
 
-def check_misplaced(repo: Path, rep: Report) -> None:
+def check_misplaced(repo: Path, rep: Report) -> None:  # noqa: C901
     def rename(src: Path, dst: Path, code: str, why: str) -> None:
         if dst.exists() or any(d == dst for _, d in rep.moves):
             rep.add("warn", code, src, f"{why}; {dst.relative_to(repo)} already exists: merge by hand")
@@ -2324,7 +2324,7 @@ def check_misplaced(repo: Path, rep: Report) -> None:
             )
 
 
-def check_workflows(repo: Path, rep: Report) -> None:
+def check_workflows(repo: Path, rep: Report) -> None:  # noqa: C901
     wf_dir = repo / ".github" / "workflows"
     if not wf_dir.is_dir():
         return
@@ -2387,7 +2387,7 @@ def check_repo_secrets(repo: Path, rep: Report) -> None:
         for fn in filenames:
             p = Path(dirpath) / fn
             try:
-                if p.stat().st_size > 1_000_000:
+                if p.stat().st_size > 1_000_000:  # noqa: PLR2004
                     continue
             except OSError:
                 continue
@@ -2405,7 +2405,7 @@ def check_repo_secrets(repo: Path, rep: Report) -> None:
                 )
 
 
-def check_user_extras(rep: Report) -> None:
+def check_user_extras(rep: Report) -> None:  # noqa: C901, PLR0912
     home = Path.home()
     for rc in (
         ".bashrc",
@@ -2699,7 +2699,7 @@ def detect_rtk(use_cli: bool) -> None:
     RTK["genuine"] = bool(gain and gain.returncode == 0)
     helptext = _run(["rtk", "--help"])
     cmds = set(re.findall(r"(?m)^\s{2,}([a-z][\w-]*)[\s,]", (helptext.stdout if helptext else "") or ""))
-    RTK["help_commands"] = cmds if len(cmds) >= 10 else set()
+    RTK["help_commands"] = cmds if len(cmds) >= 10 else set()  # noqa: PLR2004
     # `rtk rewrite` prints the rewritten command on stdout when it supports it and
     # nothing when it doesn't. Its exit code is unreliable (rtk 0.42.1 exits 3 on a
     # successful rewrite), so detection keys on stdout, not the return code.
@@ -2758,7 +2758,7 @@ def rtk_settings_hooks(policy: dict, repos: list[Path]) -> list[tuple[Path, str,
     return found
 
 
-def check_rtk(policy: dict, rep: Report, repos: list[Path], user_scope: bool) -> None:
+def check_rtk(policy: dict, rep: Report, repos: list[Path], user_scope: bool) -> None:  # noqa: C901, PLR0912, PLR0915
     pol = policy["permissions"]
     if not pol["require_rtk"]:
         return
@@ -2889,7 +2889,7 @@ def check_llmtrim(rep: Report, repos: list[Path], user_scope: bool) -> None:
     for root in roots:
         for ag in sorted(root.glob("agents/**/*.md")):
             if LLMTRIM_ROUTE_MARKER.search(read_text(ag) or ""):
-                routes.append(ag)
+                routes.append(ag)  # noqa: PERF401
     if routes:
         rep.add(
             "warn",
@@ -3124,7 +3124,7 @@ def _in_stack(stack: dict, keys: tuple[str, ...]) -> bool:
     return any(stack.get(k) for k in keys)
 
 
-def generated_permissions(stack: dict, policy: dict) -> dict:
+def generated_permissions(stack: dict, policy: dict) -> dict:  # noqa: C901, PLR0912
     g, perms = policy["generate"], policy["permissions"]
     allow = [
         "Bash(git status *)",
@@ -3229,7 +3229,7 @@ def _sorted_deep(obj: Any) -> Any:
     return obj
 
 
-def write_json_merged(path: Path, wanted: dict, rep: Report, what: str) -> None:
+def write_json_merged(path: Path, wanted: dict, rep: Report, what: str) -> None:  # noqa: C901, PLR0912
     raw = rep.current(path)
     try:
         data = lenient_json(raw)[0] if raw else {}
@@ -3512,7 +3512,7 @@ def generate_project(repo: Path, policy: dict, rep: Report) -> None:
             )
         if g.get("read_guard_hook", True):
             kb = g.get("read_guard_kb", 256)
-            kb = kb if isinstance(kb, int) and not isinstance(kb, bool) and 16 <= kb <= 4096 else 256
+            kb = kb if isinstance(kb, int) and not isinstance(kb, bool) and 16 <= kb <= 4096 else 256  # noqa: PLR2004
             gen_new_file(
                 repo / ".claude" / "hooks" / "read_guard.py",
                 READ_GUARD_HOOK.replace("__LIMIT_KB__", str(kb)),
@@ -3792,7 +3792,7 @@ def est(text: str) -> int:
 
 def _with_imports(path: Path, seen: set, depth: int = 0) -> list[tuple[Path, int]]:
     rp = path.resolve()
-    if rp in seen or depth > 4 or not path.is_file():
+    if rp in seen or depth > 4 or not path.is_file():  # noqa: PLR2004
         return []
     seen.add(rp)
     text = read_text(path) or ""
@@ -3874,7 +3874,7 @@ def is_generated(path: Path) -> bool:
         return False
 
 
-def token_budget(repo: Path | None, user: bool, policy: dict, rep: Report) -> dict:
+def token_budget(repo: Path | None, user: bool, policy: dict, rep: Report) -> dict:  # noqa: C901, PLR0912, PLR0915
     seen: set = set()
     parts: dict[str, list[tuple[Path, int]]] = {
         "instructions": [],
@@ -3926,10 +3926,10 @@ def token_budget(repo: Path | None, user: bool, policy: dict, rep: Report) -> di
     grouped = sorted(((g, len(v), sum(v)) for g, v in groups.items()), key=lambda x: -x[2])
     pack_limit = policy["tokens"].get("agent_pack_tokens", 1000)
     for g, n, t in grouped:
-        if "/agents" in g and n >= 5 and t >= pack_limit:
+        if "/agents" in g and n >= 5 and t >= pack_limit:  # noqa: PLR2004
             rep.add("warn", "TOKEN_AGENT_PACK", g, f"{n} subagents ~{t} tokens listed in every request")
     imported = [(p, t) for p, t in parts["instructions"] if p.name not in ("CLAUDE.md", "AGENTS.md", "CLAUDE.local.md")]
-    if imported and sum(t for _, t in imported) > 1500:
+    if imported and sum(t for _, t in imported) > 1500:  # noqa: PLR2004
         rep.add(
             "info",
             "TOKEN_IMPORTS",
@@ -4075,7 +4075,7 @@ def readonly_mechanical_agents(claude_dirs: list[Path]) -> list[Path]:
     return [sub for d in claude_dirs for sub, meta in mechanical_agents(d) if not _can_write(meta) and _writable(sub)]
 
 
-def check_token_levers(repo: Path, policy: dict, rep: Report, stack: dict | None = None) -> None:
+def check_token_levers(repo: Path, policy: dict, rep: Report, stack: dict | None = None) -> None:  # noqa: C901, PLR0912
     if policy["tokens"]["prefer_cli_over_mcp"]:
         servers = load_json_file(repo / ".mcp.json").get("mcpServers") or {}
         for name, cli in (
@@ -4123,7 +4123,7 @@ def check_token_levers(repo: Path, policy: dict, rep: Report, stack: dict | None
             "TOKEN_SUBAGENT_MODEL",
             repo / ".claude" / "agents",
             f"{len(kept)} mechanical subagent(s) left on the inherited model because they can write "
-            f"(write tools declared or no tool restriction): {', '.join(kept[:5])}" + (" ..." if len(kept) > 5 else ""),
+            f"(write tools declared or no tool restriction): {', '.join(kept[:5])}" + (" ..." if len(kept) > 5 else ""),  # noqa: PLR2004
         )
     heavy = [m.lower() for m in policy["tokens"].get("heavy_models", ["opus", "fable"])]
     preferred = safe_model(policy["tokens"].get("preferred_model", "sonnet"), "sonnet")
@@ -4256,7 +4256,7 @@ HINTS.update(
 
 
 def _words(text: str) -> set[str]:
-    return {w for w in re.findall(r"[a-z0-9]+", text.lower()) if len(w) > 2 and w not in STOPWORDS}
+    return {w for w in re.findall(r"[a-z0-9]+", text.lower()) if len(w) > 2 and w not in STOPWORDS}  # noqa: PLR2004
 
 
 def _body_hash(text: str) -> str:
@@ -4266,7 +4266,7 @@ def _body_hash(text: str) -> str:
     if stripped.startswith("---") and (end := stripped.find("\n---", 3)) != -1:
         stripped = stripped[end + 4 :]
     norm = re.sub(r"\s+", " ", stripped).strip()
-    return hashlib.sha256(norm.encode()).hexdigest() if len(norm) > 200 else ""
+    return hashlib.sha256(norm.encode()).hexdigest() if len(norm) > 200 else ""  # noqa: PLR2004
 
 
 def collect_items(roots: list[Path]) -> list[dict]:
@@ -4323,7 +4323,7 @@ def collect_items(roots: list[Path]) -> list[dict]:
     return items
 
 
-def find_duplicates(
+def find_duplicates(  # noqa: C901, PLR0912
     items: list[dict], threshold: float = 0.6, focus: set | None = None
 ) -> list[tuple[str, list[dict]]]:
     """Cluster duplicates. With focus (item indexes), only pairs touching a focus item count."""
@@ -4365,7 +4365,7 @@ def find_duplicates(
     # kind instead of over every item (13s -> sub-second on large user scopes).
     by_kind: dict[str, list[int]] = {}
     for i, it in enumerate(items):
-        if len(it["words"]) >= 4:
+        if len(it["words"]) >= 4:  # noqa: PLR2004
             by_kind.setdefault(it["kind"], []).append(i)
     for bucket in by_kind.values():
         for a_pos, i in enumerate(bucket):
@@ -4421,7 +4421,7 @@ def check_duplicates(user_roots: list[Path], project_roots: list[Path], rep: Rep
     dups = session_duplicates(user_roots, project_roots)
     rep.stats["duplicate groups"] = len(dups)
     for why, members in dups:
-        names = ", ".join(f"{m['kind']}:{m['name']}" for m in members[:4]) + (" ..." if len(members) > 4 else "")
+        names = ", ".join(f"{m['kind']}:{m['name']}" for m in members[:4]) + (" ..." if len(members) > 4 else "")  # noqa: PLR2004
         if why == "DUP_SIMILAR" and is_generated_family(members):
             stem = os.path.commonprefix([m["name"] for m in members]).rstrip("-_")
             toks = sum((len(m["desc"]) + 40) // 4 for m in members)
@@ -4448,7 +4448,7 @@ def check_duplicates(user_roots: list[Path], project_roots: list[Path], rep: Rep
         for sk in pr.glob("skills/*/SKILL.md"):
             copies[sk.parent.name] = copies.get(sk.parent.name, 0) + 1
     for name, n in sorted(copies.items(), key=lambda kv: -kv[1]):
-        if n >= 5:
+        if n >= 5:  # noqa: PLR2004
             rep.add(
                 "info",
                 "DUP_ACROSS_PROJECTS",
@@ -4464,7 +4464,7 @@ def check_duplicates(user_roots: list[Path], project_roots: list[Path], rep: Rep
 def _fr_plural(n: int, singular: str, plural: str | None = None) -> str:
     """French count phrase: '1 groupe', '3 groupes'. In French 0 takes the
     singular. Pass an explicit plural for irregular words."""
-    word = singular if abs(n) < 2 else (plural if plural is not None else singular + "s")
+    word = singular if abs(n) < 2 else (plural if plural is not None else singular + "s")  # noqa: PLR2004
     return f"{n} {word}"
 
 
@@ -4617,7 +4617,7 @@ def _git_ignored(path: Path) -> bool:
     return r.returncode == 0
 
 
-def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> list[dict]:
+def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> list[dict]:  # noqa: C901, PLR0912, PLR0915
     pol = policy["restructure"]
     props: list[dict] = []
     for root in [r for r in roots if r.is_dir()]:
@@ -4626,8 +4626,8 @@ def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> lis
             packs: dict[Path, list[Path]] = {}
             for f in ad.rglob("*.md"):
                 rel = f.relative_to(ad).parts
-                if len(rel) >= 2:
-                    key = ad / Path(*rel[:2]) if len(rel) > 2 else ad / rel[0]
+                if len(rel) >= 2:  # noqa: PLR2004
+                    key = ad / Path(*rel[:2]) if len(rel) > 2 else ad / rel[0]  # noqa: PLR2004
                     packs.setdefault(key, []).append(f)
             for p, fs in sorted(packs.items(), key=lambda kv: -len(kv[1])):
                 if len(fs) >= pol["min_pack_agents"]:
@@ -4651,7 +4651,7 @@ def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> lis
             for d in sorted(x for x in sd.iterdir() if x.is_dir() and (x / "SKILL.md").exists()):
                 fams.setdefault(d.name.split("-")[0], []).append(d)
             for prefix, ds in fams.items():
-                if len(ds) >= pol["min_skill_family"] and len(prefix) > 2:
+                if len(ds) >= pol["min_skill_family"] and len(prefix) > 2:  # noqa: PLR2004
                     tok = sum(
                         (
                             len(((split_frontmatter(read_text(d / "SKILL.md") or "")[0]) or {}).get("description", ""))
@@ -4674,7 +4674,7 @@ def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> lis
                 sk = d / "SKILL.md"
                 text = read_text(sk) or ""
                 n = text.count("\n") + 1
-                if n > policy["skills"]["max_lines"] and len(_sections(text)) >= 4:
+                if n > policy["skills"]["max_lines"] and len(_sections(text)) >= 4:  # noqa: PLR2004
                     props.append(
                         {
                             "kind": "split-skill",
@@ -4688,7 +4688,7 @@ def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> lis
         if cd.is_dir():
             for f in sorted(cd.glob("*.md")):
                 if not (root / "skills" / f.stem).exists():
-                    props.append(
+                    props.append(  # noqa: PERF401
                         {
                             "kind": "command-to-skill",
                             "root": root,
@@ -4732,7 +4732,7 @@ def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> lis
                 ):
                     continue
                 hits = [(glob, len(re.findall(pat, low))) for pat, glob in LANG_PATHS]
-                hits = sorted([h for h in hits if h[1] >= 3], key=lambda h: -h[1])
+                hits = sorted([h for h in hits if h[1] >= 3], key=lambda h: -h[1])  # noqa: PLR2004
                 if hits and (len(hits) == 1 or hits[0][1] >= 2 * hits[1][1]):
                     props.append(
                         {
@@ -4750,7 +4750,7 @@ def compute_proposals(roots: list[Path], repos: list[Path], policy: dict) -> lis
             steps = sum(1 for l in lines if re.match(r"^\s*(\d+\.|-|\*)\s+", l))
             if (
                 len(lines) >= policy["restructure"]["procedure_min_lines"]
-                and steps >= 6
+                and steps >= 6  # noqa: PLR2004
                 and _movable_section(lines)
                 and not _is_rule_title(title, policy["restructure"].get("keep_in_instructions"))
                 and not _git_ignored(_procedure_skill_path(c, title))
@@ -5016,7 +5016,7 @@ def render_proposals(props: list[dict], color: bool) -> str:
     for p in props[:12]:
         gain = f"~{p['gain']} tok/session" if p["gain"] else "per-use"
         lines.append(f"  - {p['title']}  [{gain}]")
-    if len(props) > 12:
+    if len(props) > 12:  # noqa: PLR2004
         lines.append(f"  ... {len(props) - 12} more (all listed in --format json)")
     return "\n".join(lines)
 
@@ -5410,7 +5410,7 @@ def home_path(p: str) -> str:
     return "~" + p[len(home) :] if p.startswith(home) else p
 
 
-def proposal_fr(p: dict) -> str:
+def proposal_fr(p: dict) -> str:  # noqa: PLR0911
     path = home_path(str(p.get("path", "")))
     k = p["kind"]
     if k == "agent-pack":
@@ -5428,7 +5428,7 @@ def proposal_fr(p: dict) -> str:
     return p["title"]
 
 
-def proposal_desc(p: dict) -> str:
+def proposal_desc(p: dict) -> str:  # noqa: PLR0911
     """Language-aware proposal description for the brief report."""
     if state.lang != "en":
         return proposal_fr(p)
@@ -5465,18 +5465,18 @@ def render_profile_summary(rep: Report, color: bool, prefix: str = "") -> list[s
     lines = [f"{prefix}{b}" + _loc("PROFIL PROJET", "PROJECT PROFILE") + f"{r0}"]
     for p in profiles[:5]:
         signals = ", ".join(p.get("signals") or [])
-        if len(signals) > 140:
+        if len(signals) > 140:  # noqa: PLR2004
             signals = signals[:137] + "..."
         confidence = _confidence_label(str(p.get("confidence", "low")))
         lines.append(f"{prefix}  - {home_path(str(p.get('path', '')))}: {p.get('kind', 'generic')} ({confidence})")
         if signals:
             lines.append(f"{prefix}    {dim}" + _loc("signaux", "signals") + f": {signals}{r0}")
-    if len(profiles) > 5:
+    if len(profiles) > 5:  # noqa: PLR2004
         lines.append(f"{prefix}  {dim}+{len(profiles) - 5} more{r0}")
     return lines
 
 
-def render_brief(rep: Report, fixed: list[Finding], fix: bool, repos_count: int, color: bool) -> str:
+def render_brief(rep: Report, fixed: list[Finding], fix: bool, repos_count: int, color: bool) -> str:  # noqa: C901, PLR0912, PLR0915
     b, dim, r0 = ("\033[1m", "\033[2m", "\033[0m") if color else ("", "", "")
     red, yel, grn = ("\033[31m", "\033[33m", "\033[32m") if color else ("", "", "")
     out = [
@@ -5520,7 +5520,7 @@ def render_brief(rep: Report, fixed: list[Finding], fix: bool, repos_count: int,
             items = by_code[code]
             shown.add(code)
             places = sorted({home_path(str(f.path).split(":")[0]) for f in items})
-            where = ", ".join(places[:2]) + (f" (+{len(places) - 2})" if len(places) > 2 else "")
+            where = ", ".join(places[:2]) + (f" (+{len(places) - 2})" if len(places) > 2 else "")  # noqa: PLR2004
             fixable = sum(1 for f in items if f.fixable)
             n = len(items)
             if code == "TOKEN_AGENT_PACK":
@@ -5579,7 +5579,7 @@ def render_brief(rep: Report, fixed: list[Finding], fix: bool, repos_count: int,
                     )
                     rows.append(f"     - {proposal_desc(p)} ({gain_txt})")
         if rows:
-            out += ["", f"{b}{section_titles()[section]}{r0}"] + rows
+            out += ["", f"{b}{section_titles()[section]}{r0}", *rows]
     rest = [f for f in rep.findings if f.code not in shown]
     if rest:
         cats: dict[str, int] = {}
@@ -5640,7 +5640,7 @@ def render_brief(rep: Report, fixed: list[Finding], fix: bool, repos_count: int,
 
 
 def _affixes(texts: list[str]) -> tuple[str, str]:
-    if len(texts) < 2:
+    if len(texts) < 2:  # noqa: PLR2004
         return "", ""
     pre = os.path.commonprefix(texts)
     suf = os.path.commonprefix([t[::-1] for t in texts])[::-1]
@@ -5651,10 +5651,10 @@ def _affixes(texts: list[str]) -> tuple[str, str]:
 
 def is_generated_family(members: list[dict]) -> bool:
     """Items built from one template (only names or model ids differ): a family, not duplicates."""
-    if len(members) < 3:
+    if len(members) < 3:  # noqa: PLR2004
         return False
     stem = os.path.commonprefix([m["name"] for m in members])
-    if len(stem) < 3:
+    if len(stem) < 3:  # noqa: PLR2004
         return False
     bodies = []
     for m in members:
@@ -5670,7 +5670,7 @@ def is_generated_family(members: list[dict]) -> bool:
         text = re.sub(r"\b[\w.-]*V[\w.-]*\b", "V", text)
         bodies.append(re.sub(r"\s+", " ", text))
     top = max(set(bodies), key=bodies.count)
-    close = sum(1 for bd in bodies if bd == top or _similar_text(bd, top) >= 0.85)
+    close = sum(1 for bd in bodies if bd == top or _similar_text(bd, top) >= 0.85)  # noqa: PLR2004
     return close >= 0.8 * len(members)
 
 
@@ -5688,7 +5688,7 @@ def advice(why: str, members: list[dict]) -> tuple[list[int], str]:
     project: the user copy also serves every other project."""
     scopes = {_scope_of(m) for m in members}
     kind = members[0]["kind"]
-    if len(scopes) == 2:
+    if len(scopes) == 2:  # noqa: PLR2004
         proj = [i for i, m in enumerate(members) if _scope_of(m) == "projet"]
         if kind in ("skill", "command"):
             return proj, (
@@ -5778,7 +5778,7 @@ def interactive(rep: Report, repos: list[Path], policy: dict, user_scope: bool, 
     return app.run(rep, repos, policy, user_scope)
 
 
-def restore_trash(target: str | None) -> int:
+def restore_trash(target: str | None) -> int:  # noqa: C901
     """Move every file of a trash session back where it came from (never overwrites).
     Returns 1 when the requested session is missing or nothing could be restored."""
     # A trash session written by an older, differently-named build is still
@@ -5816,7 +5816,7 @@ def restore_trash(target: str | None) -> int:
             continue
         moved += 1
         print(f"  restauré : {home_path(str(dest))}")
-    parts = [_fr_plural(moved, "fichier") + " restauré" + ("s" if moved >= 2 else "")]
+    parts = [_fr_plural(moved, "fichier") + " restauré" + ("s" if moved >= 2 else "")]  # noqa: PLR2004
     if skipped:
         parts.append(_fr_plural(skipped, "déjà présent", "déjà présents"))
     if failed:
@@ -5837,7 +5837,7 @@ def hooks_dir(repo: Path) -> Path:
     return (repo / custom) if custom else repo / ".git" / "hooks"
 
 
-def check_attribution(repo: Path, policy: dict, rep: Report, history: bool) -> None:
+def check_attribution(repo: Path, policy: dict, rep: Report, history: bool) -> None:  # noqa: C901, PLR0912, PLR0915
     pol = policy["attribution"]
     exts = set(pol["scan_extensions"])
     skip = {
@@ -6166,7 +6166,7 @@ def check_portfolio(repos: list[Path], policy: dict, rep: Report) -> None:
     """Report agents and skills copied identically into many of the scanned projects."""
     for pack in PortfolioChecker(policy["portfolio"]["min_projects"]).packs(repos):
         names = pack["names"]
-        shown = ", ".join(names[:3]) + (f" (+{len(names) - 3})" if len(names) > 3 else "")
+        shown = ", ".join(names[:3]) + (f" (+{len(names) - 3})" if len(names) > 3 else "")  # noqa: PLR2004
         drift = f"; {pack['versions']} versions have drifted" if pack["versions"] > 1 else ""
         rep.add(
             "info",
@@ -6243,7 +6243,7 @@ def check_compression(repo: Path, rep: Report) -> None:
         _report_compression(rep, repo / ".claude", [*_settings_objects((config_dir() / "settings.json",)), *project])
 
 
-def lint_repo(repo: Path, policy: dict, rep: Report, history: bool, user_text: str | None) -> None:
+def lint_repo(repo: Path, policy: dict, rep: Report, history: bool, user_text: str | None) -> None:  # noqa: C901, PLR0912
     log(1, f"project scope: {repo}")
     check_misplaced(repo, rep)
     if state.scaffold and (repo / ".git").exists():
@@ -6302,7 +6302,7 @@ def lint_repo(repo: Path, policy: dict, rep: Report, history: bool, user_text: s
         norm = lambda t: {l.strip().lower() for l in strip_code(t).splitlines() if len(l.strip()) >= min_len}
         dup = norm(user_text) & set().union(*(norm(t) for t in texts))
         log(1, f"{len(dup)} line(s) shared with user instructions", 1)
-        if len(dup) >= 3:
+        if len(dup) >= 3:  # noqa: PLR2004
             rep.add(
                 "warn",
                 "INSTR_DUPLICATED",
@@ -6450,7 +6450,7 @@ def backup(paths: list[Path]) -> Path:
     return root
 
 
-def apply(rep: Report) -> tuple[Path | None, list[str], list[tuple[str, str]]]:
+def apply(rep: Report) -> tuple[Path | None, list[str], list[tuple[str, str]]]:  # noqa: C901
     applied: list[str] = []
     failures: list[tuple[str, str]] = []
     targets = list(rep.edits) + list(rep.new_files) + [s for s, _ in rep.moves]
@@ -6597,7 +6597,7 @@ def _unified_diff(path: Path, old: str, new: str) -> list[str]:
     )
 
 
-def render_text(
+def render_text(  # noqa: C901, PLR0912
     rep: Report,
     fix: bool,
     color: bool,
@@ -6612,7 +6612,7 @@ def render_text(
     if not quiet:
         profile_lines = render_profile_summary(rep, color)
         if profile_lines:
-            out += profile_lines + [""]
+            out += [*profile_lines, ""]
     if fix and applied and not quiet:
         out.append(f"{g}== Files changed ({len(applied)}){r0}")
         for a in applied:
@@ -6654,7 +6654,7 @@ def render_text(
             if action:
                 out.append(f"{g}      {_loc('→ solution', '→ fix')} : {r0}{action}")
             if state.verbosity >= 1 and f.code in HINTS:
-                why, ref = HINTS[f.code]
+                _why, ref = HINTS[f.code]
                 if not _action_for(f.code) or ref:
                     out.append(f"{dim}      ref: {HINTS[f.code][1]}{r0}")
         total_gain = sum(_finding_gain(f) for f in rep.findings)
@@ -6778,7 +6778,7 @@ def render_group(items: list[Finding], lvl_color: dict, r0: str, indent: str = "
         + (f"  ({fixable} fixable)" if fixable else ""),
         f"{indent}        most common ({n_common}): {items[0].message if len(msgs) == 1 else common}",
         f"{indent}        in: {', '.join(files[:3])}"
-        + (f" +{len(files) - 3} more" if len(files) > 3 else "")
+        + (f" +{len(files) - 3} more" if len(files) > 3 else "")  # noqa: PLR2004
         + ("  (--all to list every one)" if not state.show_all else ""),
     ]
 
@@ -6822,7 +6822,7 @@ def render_stats(rep: Report, first: Report | None, fixed: list[Finding], color:
     return "\n".join(lines)
 
 
-def render_summary(
+def render_summary(  # noqa: C901, PLR0912, PLR0915
     rep: Report,
     fix: bool,
     color: bool,
@@ -6861,7 +6861,7 @@ def render_summary(
         lines.append("  (none)")
     for code, items in sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0])):
         files = sorted({short_path(f.path) for f in items})
-        where = ", ".join(files[:3]) + (f" +{len(files) - 3}" if len(files) > 3 else "")
+        where = ", ".join(files[:3]) + (f" +{len(files) - 3}" if len(files) > 3 else "")  # noqa: PLR2004
         lines.append(f"  {mark_done} {code:24} x{len(items):<3} {where}")
 
     shown = [f for f in manual if not quiet or f.level == "error"]
@@ -7148,7 +7148,7 @@ def dump_catalog() -> str:
     return header + yaml.safe_dump(catalog_data(), sort_keys=True, allow_unicode=True, width=100)
 
 
-def load_catalog(path: Path) -> None:
+def load_catalog(path: Path) -> None:  # noqa: C901
     """Overlay an edited catalog onto the built-in defaults: extend reference sets,
     and record severity/enabled/action overrides for codes."""
     if yaml is None:
@@ -7156,7 +7156,7 @@ def load_catalog(path: Path) -> None:
         return
     try:
         data = yaml.safe_load(read_text(path) or "") or {}
-    except (OSError, yaml.YAMLError) as e:  # noqa: BLE001
+    except (OSError, yaml.YAMLError) as e:
         log(1, f"catalog {path}: unreadable ({e}); using built-in defaults")
         return
     ref = data.get("reference") or {}
@@ -7319,7 +7319,7 @@ def _audit_text(rep: Report) -> str:
     return head + "\n" + "\n".join(f"  {p}" for p in pending)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0911, PLR0912, PLR0915
     ap = argparse.ArgumentParser(
         description="Validate, repair and optimize coding-agent configurations "
         "(Claude Code settings, permissions, hooks, MCP, skills, subagents, "

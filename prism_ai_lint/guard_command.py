@@ -45,7 +45,7 @@ class GuardCommand:
         if not tokens or tokens[-1] != "--guard" or any(self.SHELL_META.search(t) for t in tokens):
             return False
         body = tokens[:-1]
-        if len(body) == 2 and re.fullmatch(r"(\S*/)?python[\d.]*", body[0]):
+        if len(body) == 2 and re.fullmatch(r"(\S*/)?python[\d.]*", body[0]):  # noqa: PLR2004
             body = body[1:]
         if len(body) != 1:
             return False

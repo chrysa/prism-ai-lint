@@ -99,7 +99,7 @@ def derive_description(text: str) -> str | None:
             l.strip() for l in para.splitlines() if l.strip() and not l.lstrip().startswith(("#", "|", ">", "!"))
         )
         para = re.sub(r"[*_`]", "", para).strip(" -")
-        if len(para) >= 20:
+        if len(para) >= 20:  # noqa: PLR2004
             return re.split(r"(?<=[.!?])\s", para)[0][:300]
     return None
 
@@ -162,9 +162,9 @@ def move_to_metadata(text: str, keys: list[str]) -> str:
         return text
     block = ["  " + l for e in moved for l in e]
     if meta_idx is None:
-        keep.append(["metadata:"] + block)
+        keep.append(["metadata:", *block])
     else:
-        keep[meta_idx] = [re.sub(r"^metadata\s*:.*$", "metadata:", keep[meta_idx][0])] + keep[meta_idx][1:] + block
+        keep[meta_idx] = [re.sub(r"^metadata\s*:.*$", "metadata:", keep[meta_idx][0]), *keep[meta_idx][1:], *block]
     return "---\n" + "\n".join(l for e in keep for l in e) + "\n---" + body
 
 

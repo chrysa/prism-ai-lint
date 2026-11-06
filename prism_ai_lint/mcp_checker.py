@@ -61,7 +61,7 @@ class McpChecker:
             return target.exists()
         return shutil.which(first) is not None
 
-    def check_servers(self, servers: dict, path: Path, rep: Report, ctx: str, writable: bool) -> dict:
+    def check_servers(self, servers: dict, path: Path, rep: Report, ctx: str, writable: bool) -> dict:  # noqa: C901, PLR0912
         out = {}
         for name, cfg in servers.items():
             rep.stats["MCP servers"] = rep.stats.get("MCP servers", 0) + 1

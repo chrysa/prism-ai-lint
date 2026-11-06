@@ -94,7 +94,7 @@ class AgentConverter:
         for doc in contract.documents:
             for line in doc["content"].splitlines():
                 rule = line.strip()
-                if len(rule) < 20 or rule.startswith(("#", "<!--")):
+                if len(rule) < 20 or rule.startswith(("#", "<!--")):  # noqa: PLR2004
                     continue
                 if rule in seen and seen[rule] != doc["path"]:
                     contract.warn(

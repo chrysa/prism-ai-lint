@@ -261,7 +261,7 @@ class CodexChecker:
             if level is not None and level not in CODEX_TRUST_LEVELS:
                 rep.add("error", "CODEX_TRUST_INVALID", path, f"projects.{where!r}: trust_level {level!r} is unknown")
 
-    def _check_mcp(self, cfg: dict, path: Path, policy: dict, rep: Report) -> None:
+    def _check_mcp(self, cfg: dict, path: Path, policy: dict, rep: Report) -> None:  # noqa: C901
         servers = cfg.get("mcp_servers")
         if not isinstance(servers, dict):
             return
@@ -395,7 +395,7 @@ class CodexChecker:
                 f"{event}: relative .codex/ path breaks when Codex starts in a subfolder; resolve it from the git root",
             )
         timeout = h.get("timeout")
-        if event in SHORT_HOOK_EVENTS and isinstance(timeout, (int, float)) and timeout > 3:
+        if event in SHORT_HOOK_EVENTS and isinstance(timeout, (int, float)) and timeout > 3:  # noqa: PLR2004
             rep.add("warn", "CODEX_HOOK_TIMEOUT", path, f"{event}: timeout {timeout}s is above the 3 s maximum")
 
     def check_rules(self, path: Path, policy: dict, rep: Report) -> None:

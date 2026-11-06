@@ -3,6 +3,8 @@
 # locally.) Conventions: invariant target names, single entry point (run
 # every task through `make <target>`, never call ruff/pytest/mypy by hand),
 # caches kept out of the source tree.
+#
+# makefile-tier: lib
 
 PY ?= python3
 SOURCE := prism_ai_lint prism-ai-lint.py
@@ -15,7 +17,7 @@ export MYPY_CACHE_DIR := /tmp/prism-ai-lint-mypy-cache
 
 .DEFAULT_GOAL := help
 
-.PHONY: help install lint format typecheck type-check test cov \
+.PHONY: help install dev lint format typecheck test cov test-cov \
         docker-test build clean selfcheck check ci ci-lint ci-test \
         pre-commit pre-commit-install pre-commit-update changelog
 
@@ -36,10 +38,10 @@ format:  ## Format with ruff
 typecheck:  ## Static type check (mypy)
 	@$(PY) -m mypy
 
-type-check: typecheck  ## Alias for typecheck
-
 test:  ## Run the test suite
 	@$(PY) -m pytest -q
+
+dev: install pre-commit-install  ## Set up a dev environment (deps + git hooks)
 
 cov:  ## Tests with coverage incl. CLI subprocesses (floor 60%, target 90%)
 	@rm -f .coverage .coverage.*
@@ -51,6 +53,8 @@ cov:  ## Tests with coverage incl. CLI subprocesses (floor 60%, target 90%)
 		--fail-under=60
 	@COVERAGE_FILE=$(CURDIR)/.coverage $(PY) -m coverage xml --rcfile=$(CURDIR)/pyproject.toml \
 		-o $(REPORTS_DIR)/coverage.xml
+
+test-cov: cov  ## Alias for cov
 
 selfcheck:  ## Run prism-ai-lint on its own repo; fail only on real traces/secrets in-repo
 	@$(PY) tests/_selfcheck.py

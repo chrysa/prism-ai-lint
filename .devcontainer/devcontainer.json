@@ -1,10 +1,4 @@
 {
-  "name": "prism-ai-lint",
-  "image": "mcr.microsoft.com/devcontainers/python:3.13",
-  "features": {
-    "ghcr.io/devcontainers/features/git:1": {}
-  },
-  "postCreateCommand": "pip install -e '.[dev]' && pre-commit install",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -13,16 +7,22 @@
         "charliermarsh.ruff"
       ],
       "settings": {
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true
+        },
         "python.defaultInterpreterPath": "/usr/local/bin/python",
         "python.linting.enabled": true,
-        "python.linting.ruffEnabled": true,
-        "[python]": {
-          "editor.formatOnSave": true,
-          "editor.defaultFormatter": "charliermarsh.ruff"
-        }
+        "python.linting.ruffEnabled": true
       }
     }
   },
+  "features": {
+    "ghcr.io/devcontainers/features/git:1": {}
+  },
   "forwardPorts": [],
+  "image": "mcr.microsoft.com/devcontainers/python:3.13",
+  "name": "prism-ai-lint",
+  "postCreateCommand": "pip install -e '.[dev]' && pre-commit install",
   "remoteUser": "vscode"
 }
