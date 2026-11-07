@@ -182,8 +182,25 @@ class InstructionChecker:
         if doctrine or marker in "\n".join(text.splitlines()[:5]):
             return  # both are renders of the same source
         code = "AGENTS_MENTION" if "AGENTS.md" in text else "AGENTS_IGNORED"
-        rep.add("warn", code, claude, f"AGENTS.md is not imported (added @{rel} at the top)", True)
-        rep.edit(claude, text, f"@{rel}\n\n{text}")
+        new = self.with_import(text, rel)
+        where = "at the top" if new.startswith("@") else "after the title"
+        rep.add("warn", code, claude, f"AGENTS.md is not imported (added @{rel} {where})", True)
+        rep.edit(claude, text, new)
+
+    TITLE = re.compile(r"#[ \t]+\S")  # ATX level-1 heading
+
+    @classmethod
+    def with_import(cls, text: str, rel: str) -> str:
+        """Add `@rel` at the top, or right after a leading level-1 title: Markdown linters require the first line to
+        be a top-level heading (markdownlint MD041), and Claude Code expands an import wherever it stands."""
+        lines = text.splitlines(keepends=True)
+        first = next((i for i, line in enumerate(lines) if line.strip()), None)
+        if first is None or not cls.TITLE.match(lines[first]):
+            return f"@{rel}\n\n{text}"
+        title = "".join(lines[: first + 1])
+        title += "" if title.endswith("\n") else "\n"
+        rest = "".join(lines[first + 1 :]).lstrip("\r\n")
+        return f"{title}\n@{rel}\n" + (f"\n{rest}" if rest else "")
 
     def check_rendered(self, repo: Path, policy: dict, rep: Report) -> None:
         pol = policy["instructions"]
