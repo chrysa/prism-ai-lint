@@ -35,6 +35,9 @@ If a change *could* loosen, it is **reported as a finding and left for the human
   of this installation written. A project's `settings.local.json` is not mirrored into the shared rules file.
   Codex `allow` rules, MCP servers, skills, subagents and instruction files are never copied.
 - Codex TOML (`config.toml`, custom agents) is never edited: findings are report-only.
+- Keep a repaired JSON file's keys sorted when they were sorted before the repair (at least three ordered
+  key pairs, none out of order): a repository that enforces sorted JSON would otherwise reject the repair.
+  Key order only; the content is unchanged.
 
 ## What `--generate` / scaffolding may create
 

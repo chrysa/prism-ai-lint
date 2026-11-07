@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from prism_ai_lint.finding import Finding
+from prism_ai_lint.json_key_order import JsonKeyOrder
 
 CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b-\x1f\x7f-\x9f]")
 
@@ -95,6 +96,8 @@ class Report:
 
     def edit(self, path: Path, old: str, new: str) -> None:
         """Register a text change, chaining with an earlier change to the same file."""
+        if path.suffix == ".json" and path not in self.new_files:
+            new = JsonKeyOrder.preserve(self.edits[path][0] if path in self.edits else old, new)
         if path in self.new_files:
             self.new_files[path] = (new, self.new_files[path][1])
         elif path in self.edits:
