@@ -4,6 +4,15 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-042 · Repairs keep a sorted JSON file sorted
+`Report.edit` passes every `.json` repair through `JsonKeyOrder`: when the on-disk file had its keys sorted (at
+least three ordered adjacent pairs, none out of order) and the repaired text was written by `dump_json` but lost
+that order, the text is re-emitted with sorted keys. Files with any other order, JSONC and hand-shaped text keep
+the repair as written; new files are untouched.
+**Why:** a repair appends the keys it adds (exec-form `args`, `$schema`), so in repositories whose pre-commit
+sorts JSON keys, every `--fix` and `--align --fix` PR failed its own pre-commit check (seen on the 2026-11
+`--align` rollout). **Reverse when:** the writer preserves the original key order and formatting in general.
+
 ## D-041 · chrysa shared standards adopted; legacy lint debt grandfathered, not hidden
 The shared-standards sync (ruff rule set, pre-commit hooks, Makefile contract, CI workflows) is adopted as is, with
 three repo-specific adjustments. The new ruff rules (complexity `C901`/`PLR09xx`, `PLR2004`, `PERF401`) are enforced
