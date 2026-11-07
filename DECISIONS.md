@@ -40,7 +40,7 @@ created with `github.token` does not start other workflows, hence one workflow. 
 Apache-2.0 and the `ai-lint` aliases of D-028 dropped in v2.0.0, so the published package does not
 clash with the unrelated `ai-lint`. **How to apply:** the PyPI and TestPyPI projects trust
 `release.yml` with the environments `pypi` and `testpypi`; Docker Hub uses the repository variable
-`DOCKERHUB_USERNAME` and secret `DOCKERHUB_TOKEN`. Supersedes the `PYPI_API_TOKEN` path of D-020
+`DOCKERHUB_USERNAME` and secret `DOCKERHUB_TOKEN` (setup and recovery: [docs/RELEASING.md](docs/RELEASING.md)). Supersedes the `PYPI_API_TOKEN` path of D-020
 and D-028. **Reverse:** remove the publish jobs; published versions can only be yanked.
 
 ## D-038 · Session-link trailers are assistant attribution
