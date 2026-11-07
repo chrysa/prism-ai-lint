@@ -4,6 +4,14 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-043 · The AGENTS.md import goes after a leading title
+When `CLAUDE.md` does not import `AGENTS.md`, `--fix` adds `@AGENTS.md` as the first line, or right after the
+first line when that line is a level-1 heading (`# Title`). Claude Code expands an `@import` wherever it stands,
+so the loaded content is the same.
+**Why:** markdownlint `MD041` (first line must be a top-level heading) failed the 2026-11 `--align` PRs in
+repositories that lint Markdown, on a line the fix had added. **Reverse when:** a documented loader rule requires
+the import on the first line.
+
 ## D-042 · Repairs keep a sorted JSON file sorted
 `Report.edit` passes every `.json` repair through `JsonKeyOrder`: when the on-disk file had its keys sorted (at
 least three ordered adjacent pairs, none out of order) and the repaired text was written by `dump_json` but lost

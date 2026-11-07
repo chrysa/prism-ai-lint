@@ -58,7 +58,7 @@ rationale is decision D-040 in `DECISIONS.md`.
 |---|---|
 | `.codex/rules/prism-ai-lint.rules` | One rule per Claude Code `deny` (`forbidden`) or `ask` (`prompt`) |
 | `.claude/settings.json` | `deny` / `ask` entries and tightening repairs only, never an `allow` |
-| `CLAUDE.md` | One `@AGENTS.md` line at the top, so Claude Code loads the instructions Codex reads |
+| `CLAUDE.md` | One `@AGENTS.md` line at the top (after the title when the file starts with one), so Claude Code loads the instructions Codex reads |
 | `.claude/skills/*/SKILL.md` | Frontmatter repairs: missing `name` / `description`, unknown keys moved under `metadata` |
 
 The `CLAUDE.md` and `SKILL.md` changes come from the standard `--fix` repairs (`AGENTS_IGNORED`,
