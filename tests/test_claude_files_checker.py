@@ -103,3 +103,13 @@ def test_package_without_scripts_is_not_judged(tmp_path):
     (tmp_path / "package.json").write_text('{"name": "x"}')
     (tmp_path / "CLAUDE.md").write_text("`npm run dev`\n")
     assert _run(tmp_path) == []
+
+
+def test_design_contract_dead_references_are_checked(tmp_path):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "DESIGN.md").write_text("See `docs/tokens.json`.\n")
+    assert _codes(tmp_path) == {"INSTR_DEAD_REF"}
+
+
+def test_design_contract_is_optional(tmp_path):
+    assert _run(tmp_path) == []

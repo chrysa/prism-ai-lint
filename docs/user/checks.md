@@ -50,3 +50,14 @@ deny and the guard hook; it never copies MCP servers, skills, subagents or instr
 
 Run `prism-ai-lint --dump-reference` to see the documentation snapshot the checks compare against.
 Unknown keys are reported as info, never as errors.
+
+## Design contracts
+
+Existing `DESIGN.md` files at the root or in nested UI directories are checked for instruction size, import resolution and dead
+local file/command references, like other project instructions. Their presence does not mean
+Claude loads it automatically; reference it explicitly from your agent instructions for UI
+work. It is optional: Prism does not create a design contract or impose a brand, section
+schema or organisation-specific UI policy. Static checks do not certify visual quality,
+usability or accessibility compliance.
+
+Discovery excludes hidden and generated/dependency directories and does not follow symlinks.

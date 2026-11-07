@@ -144,7 +144,7 @@ from prism_ai_lint.agent_aligner import AgentAligner
 from prism_ai_lint.agent_contract import AgentContract
 from prism_ai_lint.agent_converter import ADAPTERS, ECOSYSTEMS, AgentConverter, canonical
 from prism_ai_lint.ape_hook_checker import ApeHookChecker
-from prism_ai_lint.claude_files_checker import ClaudeFilesChecker
+from prism_ai_lint.claude_files_checker import ClaudeFilesChecker, design_files
 from prism_ai_lint.codex_checker import CodexChecker
 from prism_ai_lint.codex_layer import CodexLayer
 from prism_ai_lint.codex_messages import CODEX_BRIEF_EN, CODEX_BRIEF_FR, CODEX_HINTS
@@ -6290,6 +6290,7 @@ def lint_repo(repo: Path, policy: dict, rep: Report, history: bool, user_text: s
         "AGENTS.md",
         ".claude/AGENTS.md",
         "CLAUDE.local.md",
+        *(str(p.relative_to(repo)) for p in design_files(repo)),
         *policy["instructions"]["rendered_files"][2:],
     ]:
         t = _INSTRUCTIONS.check_instruction_file(repo / rel, "project", policy, rep, repo)

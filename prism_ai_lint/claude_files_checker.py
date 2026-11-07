@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -86,6 +87,17 @@ def _package_scripts(package: Path) -> set[str] | None:
     return set(scripts) if isinstance(scripts, dict) else set()
 
 
+def design_files(repo: Path) -> list[Path]:
+    """Discover optional design contracts without following symlinks or generated trees."""
+    found: list[Path] = []
+    for directory, dirs, files in os.walk(repo, followlinks=False):
+        dirs[:] = sorted(d for d in dirs if not d.startswith(".") and d not in GENERATED_DIRS)
+        path = Path(directory) / "DESIGN.md"
+        if "DESIGN.md" in files and not path.is_symlink():
+            found.append(path)
+    return sorted(found)
+
+
 class ClaudeFilesChecker:
     """Reports only: nothing here edits an instruction file or a skill."""
 
@@ -95,7 +107,7 @@ class ClaudeFilesChecker:
 
     # -- dead references -------------------------------------------------------------------------
     def _instruction_paths(self, repo: Path) -> list[Path]:
-        paths = [repo / name for name in INSTRUCTION_FILES]
+        paths = [repo / name for name in INSTRUCTION_FILES] + design_files(repo)
         rules = repo / ".claude" / "rules"
         if rules.is_dir():
             paths += sorted(rules.rglob("*.md"))
