@@ -195,8 +195,6 @@ def _detect_version() -> str:
     except ImportError:
         pass
     try:
-        import subprocess
-
         out = subprocess.run(
             ["git", "-C", str(Path(__file__).resolve().parent), "describe", "--tags", "--always", "--dirty"],
             capture_output=True,
@@ -206,7 +204,7 @@ def _detect_version() -> str:
         tag = (out.stdout or "").strip().lstrip("v")
         if tag:
             return tag
-    except (OSError, ValueError):
+    except (OSError, ValueError, subprocess.SubprocessError):  # no git, or a slow one (TimeoutExpired)
         pass
     return "0.0.0-dev"
 
