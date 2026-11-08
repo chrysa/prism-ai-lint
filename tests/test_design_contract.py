@@ -159,3 +159,67 @@ def test_contract_is_never_edited(linter_module, repo, monkeypatch):
     rep = _lint(linter_module, repo, monkeypatch, scaffold=True)
     assert design not in rep.edits and not any(p.name == "DESIGN.md" for p in rep.new_files)
     assert design.read_text(encoding="utf-8") == text
+
+
+def test_dash_leading_paths_are_not_read_as_git_options(linter_module, repo):
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    _write(repo / ".gitignore", "-generated/\n")
+    _write(repo / "-generated" / "DESIGN.md", "# output\n")
+    kept = _write(repo / "-web" / "DESIGN.md", "# real\n")
+    assert linter_module.DESIGN_CONTRACTS.discover(repo) == [kept]
+
+
+def test_hostile_link_lines_finish_quickly(linter_module, repo, monkeypatch):
+    import time
+
+    design = _write(repo / "DESIGN.md", "[" * 200_000 + "\n" + "[](" * 60_000 + "\n[ok](missing.md)\n")
+    _write(repo / "AGENTS.md", "Read DESIGN.md.\n")
+    started = time.monotonic()
+    rep = _lint(linter_module, repo, monkeypatch)
+    assert time.monotonic() - started < 5
+    assert any(
+        f.code == "DESIGN_DEAD_LINK" and "missing.md" in f.message for f in rep.findings if f.path == str(design)
+    )
+
+
+def test_unstatable_links_and_imports_do_not_crash(linter_module, repo, monkeypatch):
+    long_name = "a" * 300 + ".md"
+    design = _write(repo / "DESIGN.md", f"[x]({long_name})\n@{long_name}\n")
+    _write(repo / "CLAUDE.md", f"Read DESIGN.md.\n@{long_name}\n")
+    rep = _lint(linter_module, repo, monkeypatch)  # must not raise OSError (ENAMETOOLONG)
+    assert "IMPORT_MISSING" in _codes_for(rep, design)
+
+
+def test_reference_definitions_follow_commonmark(linter_module, repo, monkeypatch):
+    design = _write(repo / "DESIGN.md", '[TODO]: decide palette\n[Note]:\n\nSee below\n[tokens]: ./gone.css "Tokens"\n')
+    _write(repo / "AGENTS.md", "Read DESIGN.md.\n")
+    msgs = [
+        f.message
+        for f in _lint(linter_module, repo, monkeypatch).findings
+        if f.code == "DESIGN_DEAD_LINK" and f.path == str(design)
+    ]
+    assert len(msgs) == 1 and "./gone.css" in msgs[0] and "decide" not in msgs[0] and "See" not in msgs[0]
+
+
+def test_symlink_alias_keeps_the_real_path_and_its_spellings(linter_module, repo, monkeypatch):
+    real = _write(repo / "docs" / "design" / "DESIGN.md", "[tokens](tokens.css)\n")
+    _write(repo / "docs" / "design" / "tokens.css", ":root {}\n")
+    (repo / "DESIGN.md").symlink_to(os.path.relpath(real, repo))
+    _write(repo / "CLAUDE.md", "Before UI work read docs/design/DESIGN.md.\n")
+    assert linter_module.DESIGN_CONTRACTS.discover(repo) == [real]
+    codes = _codes_for(_lint(linter_module, repo, monkeypatch), real)
+    assert "DESIGN_UNREFERENCED" not in codes and "DESIGN_DEAD_LINK" not in codes
+    _write(repo / "CLAUDE.md", "Before UI work read DESIGN.md.\n")  # the alias spelling counts too
+    assert "DESIGN_UNREFERENCED" not in _codes_for(_lint(linter_module, repo, monkeypatch), real)
+
+
+def test_many_contracts_stay_fast(linter_module, repo, monkeypatch):
+    import time
+
+    for i in range(150):
+        _write(repo / f"app{i:03d}" / "DESIGN.md", f"# App {i}\n[next](../app{(i + 1) % 150:03d}/DESIGN.md)\n")
+    _write(repo / "AGENTS.md", "Read app000/DESIGN.md.\n")
+    started = time.monotonic()
+    rep = _lint(linter_module, repo, monkeypatch)
+    assert time.monotonic() - started < 10
+    assert not any(f.code == "DESIGN_UNREFERENCED" for f in rep.findings)  # reached through the chain

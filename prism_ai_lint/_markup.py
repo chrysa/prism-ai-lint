@@ -79,7 +79,11 @@ def import_targets(path: Path, text: str) -> list[tuple[str, Path]]:
         if not target.is_absolute():
             target = path.parent / target
         explicit = ref.startswith(("~/", "./", "../", "/")) or re.search(r"\.\w{1,6}$", ref)
-        if target.exists() or explicit:
+        try:
+            present = target.exists()
+        except OSError:  # name too long, no permission: Python 3.13 raises where 3.14 returns False
+            present = False
+        if present or explicit:
             refs.append((ref, target))
     return refs
 

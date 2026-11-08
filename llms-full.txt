@@ -199,6 +199,7 @@ prism_ai_lint/
   config_flags.py
   content_validation.py
   critical_content_policy.py
+  design_contract_checker.py
   desktop_checker.py
   env_checker.py
   feedback_renderer.py
@@ -404,6 +405,7 @@ prism_ai_lint/compression_checker.py — Compression layers checker: rtk, llmtri
 prism_ai_lint/config_flags.py — CLI defaults from the [flags] table of the policy file, limited to options that never write.
 prism_ai_lint/content_validation.py — Human validation gates for critical content files.
 prism_ai_lint/critical_content_policy.py — Critical content policy defaults.
+prism_ai_lint/design_contract_checker.py — Optional `DESIGN.md` product design contracts: discovery, size, imports, local links and wiring.
 prism_ai_lint/desktop_checker.py — Bounded, read-only desktop portability observations.
 prism_ai_lint/env_checker.py — Checks for the `env` block and sandbox keys of a settings file.
 prism_ai_lint/feedback_renderer.py — Machine-readable feedback contract for findings.
@@ -417,4 +419,3 @@ prism_ai_lint/issue_reporter.py — Anonymized issue report: unfixed findings re
 prism_ai_lint/json_key_order.py — Keep a JSON file's sorted key order across repairs.
 prism_ai_lint/llmtrim_checker.py — llmtrim integration checker — detect and recommend compression.
 prism_ai_lint/mcp_checker.py — MCP configuration checks: .mcp.json servers and the read-only ~/.claude.json.
-prism_ai_lint/mod_checker.py — Checks for mods: plugins whose hooks/hooks.json lists TypeScript/JavaScript `modules`.

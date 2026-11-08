@@ -67,10 +67,29 @@ ALWAYS_LOADED = ("CLAUDE.md", ".claude/CLAUDE.md", "AGENTS.md", ".claude/AGENTS.
 # Further files that agents read as instructions: other tools' renders and nested instruction files.
 RENDERS = (".github/copilot-instructions.md", "GEMINI.md", ".cursorrules", ".windsurfrules")
 NESTED_INSTRUCTIONS = ("CLAUDE.md", "AGENTS.md")
-LINK_RE = re.compile(r"!?\[[^\]\n]*\]\(\s*<?([^)\s>]+)>?(?:\s+\"[^\"]*\")?\s*\)")
-REF_DEF_RE = re.compile(r"^\s{0,3}\[[^\]\n]+\]:\s*<?(\S+?)>?(?:\s+.*)?$", re.M)
+# Bounded and bracket-free so a hostile line can not trigger backtracking (labels and destinations
+# never contain brackets or parentheses here); lines longer than MAX_LINK_LINE are not parsed at all.
+LINK_RE = re.compile(r"!?\[[^\[\]\n]{0,500}\]\([ \t]*<?([^()\s<>]{1,2048})>?(?:[ \t]+\"[^\"\n]{0,500}\")?[ \t]*\)")
+# A CommonMark link reference definition: `[label]: destination "optional title"`, on one line.
+REF_DEF_RE = re.compile(
+    r"^ {0,3}\[[^\[\]\n]{1,500}\]:[ \t]*<?([^\s<>]{1,2048})>?"
+    r"(?:[ \t]+(?:\"[^\"\n]*\"|'[^'\n]*'|\([^)\n]*\)))?[ \t]*$",
+    re.M,
+)
+# Every spelling of a design contract path in an instruction file, matched once per file.
+MENTION_RE = re.compile(r"(?<![\w./-])((?:\.{1,2}/|[\w.-]+/)*DESIGN\.md)(?![\w-])")
+MAX_LINK_LINE = 4096
+MAX_CONTRACTS = 200  # beyond this a repository is not a product: stop instead of scanning forever
 SCHEME_RE = re.compile(r"^[A-Za-z][A-Za-z0-9+.-]*:")
 MAX_LISTED = 5
+
+
+def _exists(path: Path) -> bool | None:
+    """True / False, or None when the file system can not tell (name too long, no permission)."""
+    try:
+        return path.exists()
+    except OSError:
+        return None
 
 
 @dataclass
@@ -100,10 +119,15 @@ class DesignContractChecker:
         return list(self._walk(repo)[1])
 
     def _walk(self, repo: Path) -> tuple[list[Path], list[Path]]:
+        designs, external, _aliases = self._scan(repo)
+        return designs, external
+
+    def _scan(self, repo: Path) -> tuple[list[Path], list[Path], dict[Path, list[Path]]]:
+        """(contracts, symlinks out of the project, aliases). Each target is kept once, under its real
+        path when the tree has it, with every symlink spelling recorded as an alias."""
         key = repo.resolve()
-        found: list[Path] = []
+        by_target: dict[Path, list[Path]] = {}
         external: list[Path] = []
-        seen: set[Path] = set()
         base = len(Path(os.path.normpath(repo)).parts)
         git = (repo / ".git").exists()
         for directory, dirs, files in os.walk(repo, followlinks=False):
@@ -124,10 +148,18 @@ class DesignContractChecker:
             if git and is_ignored(repo, rel):
                 log(2, f"{rel}: git-ignored, not a design contract source", 2)
                 continue
-            if target not in seen:
-                seen.add(target)
-                found.append(path)
-        return sorted(found), sorted(external)
+            by_target.setdefault(target, []).append(path)
+            if len(by_target) >= MAX_CONTRACTS:
+                log(1, f"{repo}: {MAX_CONTRACTS} design contracts found, the rest is not scanned", 1)
+                break
+        designs: list[Path] = []
+        aliases: dict[Path, list[Path]] = {}
+        for paths in by_target.values():
+            real = [p for p in paths if not p.is_symlink()]
+            kept = sorted(real or paths)[0]
+            designs.append(kept)
+            aliases[kept] = sorted(p for p in paths if p != kept)
+        return sorted(designs), sorted(external), aliases
 
     @staticmethod
     def _inside(path: Path, root: Path) -> bool:
@@ -139,7 +171,7 @@ class DesignContractChecker:
 
     # -- checks ----------------------------------------------------------------------------------
     def check_repo(self, repo: Path, policy: dict, rep: Report, imports_checker: InstructionChecker) -> None:
-        designs, external = self._walk(repo)
+        designs, external, aliases = self._scan(repo)
         for link in external:
             rep.add("info", "DESIGN_EXTERNAL", link, "symlink to a file outside the project: not analysed")
         if not designs:
@@ -161,14 +193,16 @@ class DesignContractChecker:
                 )
             imports_checker.check_imports(path, text, rep, policy, repo)
             self._dead_links(repo, path, text, rep)
-        self._wiring(repo, designs, rep)
+        self._wiring(repo, designs, aliases, rep)
 
     def _dead_links(self, repo: Path, doc: Path, text: str, rep: Report) -> None:
-        prose = strip_html_comments(strip_code(text))
+        prose = "\n".join(
+            line for line in strip_html_comments(strip_code(text)).splitlines() if len(line) <= MAX_LINK_LINE
+        )
         dead: list[str] = []
         for target in [*LINK_RE.findall(prose), *REF_DEF_RE.findall(prose)]:
             resolved = self._local_target(repo, doc, target)
-            if resolved is not None and not resolved.exists():
+            if resolved is not None and _exists(resolved) is False:
                 dead.append(target)
         dead = list(dict.fromkeys(dead))
         if dead:
@@ -216,28 +250,38 @@ class DesignContractChecker:
         rel = path.relative_to(repo).parts
         return repo if len(rel) == 1 or rel[0] in (".claude", ".github") else path.parent
 
-    def _resolve_mentions(self, repo: Path, src: _Source, designs: list[Path]) -> None:
-        by_resolved = {d.resolve(): d for d in designs}
+    def _index(self, repo: Path, designs: list[Path], aliases: dict[Path, list[Path]]) -> dict[str, Path]:
+        """Normalised absolute path (real file and every symlink alias) -> kept contract path."""
+        index: dict[str, Path] = {}
+        for design in designs:
+            for spelling in (design, *aliases.get(design, ())):
+                index[os.path.normpath(spelling)] = design
+            index.setdefault(os.path.normpath(design.resolve()), design)
+        return index
+
+    def _resolve_mentions(self, repo: Path, src: _Source, index: dict[str, Path]) -> None:
         for _ref, target in import_targets(src.path, src.text):
-            hit = by_resolved.get(target.resolve()) if target.exists() else None
-            if hit is not None:
-                src.imports.add(hit)
+            if _exists(target):
+                hit = index.get(os.path.normpath(target)) or index.get(os.path.normpath(target.resolve()))
+                if hit is not None:
+                    src.imports.add(hit)
         body = strip_html_comments(src.text)
         scope = self._scope_dir(repo, src.path)
-        for design in designs:
-            if design == src.path:
-                continue
-            rel_src = os.path.relpath(design, src.path.parent).replace(os.sep, "/")
-            spellings = {design.relative_to(repo).as_posix(), rel_src, f"./{rel_src}"}
-            if design.parent == scope:
-                spellings.add(DESIGN_NAME)
-            if any(re.search(rf"(?<![\w./-]){re.escape(s)}(?![\w-])", body) for s in spellings):
-                src.mentions.add(design)
+        own = os.path.normpath(src.path)
+        for spelling in set(MENTION_RE.findall(body)):
+            # A bare name points at the file's scope; a path is relative to the file, then to the root.
+            bases = (scope,) if spelling == DESIGN_NAME else (src.path.parent, repo)
+            for base_dir in bases:
+                hit = index.get(os.path.normpath(base_dir / spelling))
+                if hit is not None and os.path.normpath(hit) != own:
+                    src.mentions.add(hit)
+                    break
 
-    def _wiring(self, repo: Path, designs: list[Path], rep: Report) -> None:
+    def _wiring(self, repo: Path, designs: list[Path], aliases: dict[Path, list[Path]], rep: Report) -> None:
+        index = self._index(repo, designs, aliases)
         sources = self._sources(repo, designs)
         for src in sources:
-            self._resolve_mentions(repo, src, designs)
+            self._resolve_mentions(repo, src, index)
         referenced: set[Path] = set()
         for src in sources:
             referenced |= src.mentions | src.imports
@@ -255,7 +299,7 @@ class DesignContractChecker:
         while frontier:
             current = frontier.pop()
             src = _Source(current, False, read_text(current) or "")
-            self._resolve_mentions(repo, src, designs)
+            self._resolve_mentions(repo, src, index)
             for design in (src.mentions | src.imports) - referenced:
                 referenced.add(design)
                 frontier.append(design)
