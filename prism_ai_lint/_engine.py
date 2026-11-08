@@ -3005,17 +3005,26 @@ GENERATE_POLICY = {
         "check",
         "build",
         "typecheck",
-        "up",
-        "down",
-        "logs",
         "ps",
-        "dev",
-        "run",
         "help",
         "doctor",
         "validate",
     ],
-    "gated_make_targets": ["deploy", "release", "publish", "push", "promote", "rollback"],
+    # Targets with an effect outside the working tree (deploy, publish) or that start/stop services: always "ask".
+    # A target listed in both lists is asked.
+    "gated_make_targets": [
+        "deploy",
+        "release",
+        "publish",
+        "push",
+        "promote",
+        "rollback",
+        "up",
+        "down",
+        "dev",
+        "run",
+        "logs",
+    ],
 }
 DEFAULT_POLICY["generate"] = GENERATE_POLICY
 MCP_CATALOG = {
@@ -3154,15 +3163,13 @@ def generated_permissions(stack: dict, policy: dict) -> dict:  # noqa: C901, PLR
         "Bash(git log *)",
         "Bash(git show *)",
         "Bash(git branch *)",
-        "Bash(git add *)",
-        "Bash(git commit *)",
     ]
-    ask: list[str] = []
+    ask: list[str] = ["Bash(git add *)", "Bash(git commit *)"]  # they change the repository history: confirm
     for t in stack["make"]:
-        if t in g["safe_make_targets"]:
+        if t in g["gated_make_targets"]:  # checked first: a target in both lists is asked, never allowed
+            ask += [f"Bash(make {t})", f"Bash(make {t} *)"]
+        elif t in g["safe_make_targets"]:
             allow.append(f"Bash(make {t})")
-        elif t in g["gated_make_targets"]:
-            ask.append(f"Bash(make {t} *)")
     if stack["python"]:
         allow += [
             "Bash(pytest *)",

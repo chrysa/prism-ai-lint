@@ -4,6 +4,18 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-045 · Generated allow rules cover only local, read-only or self-contained commands
+`--generate` keeps writing a stack-specific `allow` baseline, but only for commands with no effect outside the working
+tree that cannot rewrite history: read-only git, the safe Makefile targets, the language test/lint/format/typecheck
+tools and read-only cluster or CI views. `git add`, `git commit`, the Makefile targets that start or stop services
+(`up`, `down`, `dev`, `run`, `logs`) and the gated targets (`deploy`, `release`, `publish`, `push`, `promote`,
+`rollback`) are generated as `ask`, both bare (`Bash(make up)`) and with arguments (`Bash(make up *)`); the gated list
+wins when a target is in both lists. FIXER_POLICY.md now names this baseline as the one exception to "never add an
+allow rule". **Why:** `make up` / `make down` were allowed while `docker compose up` / `down` were asked (D-029), and
+the policy text said no code path adds an allow rule while `--generate` did; a regenerated fleet PR made both
+visible. **Reverse when:** Claude Code gains a per-command "effect" classification that makes the baseline list
+unnecessary.
+
 ## D-044 · DESIGN.md is an optional, on-demand contract: wired, linked and sized, never judged
 A `DESIGN.md` (root or nested) is discovered deterministically — hidden, dependency, build, cache and git-ignored
 trees skipped, linked directories not followed, a symlink kept only when it resolves inside the project — and checked

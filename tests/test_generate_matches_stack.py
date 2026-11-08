@@ -45,6 +45,35 @@ def test_compose_up_and_down_ask_instead_of_allow(linter_module, tmp_path):
     assert any("compose logs" in r for r in p["allow"])
 
 
+SERVICE_TARGETS = ("up", "down", "dev", "run", "logs")
+MAKEFILE = "".join(f"{t}:\n\t@true\n" for t in ("test", "lint", "build", *SERVICE_TARGETS, "deploy"))
+
+
+def test_make_targets_that_start_or_stop_services_ask_instead_of_allow(linter_module, tmp_path):
+    p = _perms(linter_module, tmp_path, {"Makefile": MAKEFILE})
+    for t in (*SERVICE_TARGETS, "deploy"):
+        assert f"Bash(make {t})" in p["ask"] and f"Bash(make {t} *)" in p["ask"], t
+        assert not any(r.startswith(f"Bash(make {t}") for r in p["allow"]), t
+    # self-contained local targets stay allowed
+    assert {"Bash(make test)", "Bash(make lint)", "Bash(make build)"} <= set(p["allow"])
+
+
+def test_git_add_and_commit_ask_instead_of_allow(linter_module, tmp_path):
+    p = _perms(linter_module, tmp_path, PY)
+    assert "Bash(git add *)" in p["ask"] and "Bash(git commit *)" in p["ask"]
+    assert not any(
+        r.removeprefix("Bash(rtk ").startswith(("git add", "git commit", "Bash(git add", "Bash(git commit"))
+        for r in p["allow"]
+    )
+    # read-only git stays allowed (rtk-wrapped when the policy routes through rtk)
+    assert {"Bash(git status *)", "Bash(rtk git status *)"} & set(p["allow"])
+
+
+def test_no_generated_allow_rule_is_also_asked_or_denied(linter_module, tmp_path):
+    p = _perms(linter_module, tmp_path, {**PY, "Makefile": MAKEFILE, "docker-compose.yml": "services: {}\n"})
+    assert not set(p["allow"]) & (set(p["ask"]) | set(p["deny"]))
+
+
 def test_terraform_cache_read_is_denied_in_every_project(linter_module, tmp_path):
     p = _perms(linter_module, tmp_path, PY)
     assert "Read(**/.terraform/**)" in p["deny"]
