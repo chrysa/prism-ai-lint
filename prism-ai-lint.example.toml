@@ -104,8 +104,8 @@ extra_allow = []
 extra_ask = []
 extra_deny = []
 rtk_exclude_commands = []
-safe_make_targets = ["test", "lint", "fmt", "format", "check", "build", "typecheck", "up", "down", "logs", "ps", "dev", "run", "help", "doctor", "validate"]
-gated_make_targets = ["deploy", "release", "publish", "push", "promote", "rollback"]
+safe_make_targets = ["test", "lint", "fmt", "format", "check", "build", "typecheck", "ps", "help", "doctor", "validate"]
+gated_make_targets = ["deploy", "release", "publish", "push", "promote", "rollback", "up", "down", "dev", "run", "logs"]
 
 [reporting]
 mode = "ask"

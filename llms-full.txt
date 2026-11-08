@@ -45,11 +45,6 @@ Cut the tokens AI coding agents burn on every request: lint, repair and guard th
   skills/
     adr-new/
       SKILL.md
-    check/
-      SKILL.md
-      references/
-      reviewers/
-      scripts/
     cli/
       SKILL.md
     commit/
@@ -101,6 +96,9 @@ Cut the tokens AI coding agents burn on every request: lint, repair and guard th
     feature.js
     fleet-sweep.js
     pr-review.js
+.codex/
+  rules/
+    prism-ai-lint.rules
 .devcontainer/
   devcontainer.json
 .editorconfig
@@ -157,6 +155,8 @@ docs/
   RELEASING.md
   agent-conversion.md
   desktop-compatibility.md
+  plans/
+    roadmap-v1.md
   tui.md
   user/
     automation.md
@@ -237,6 +237,18 @@ prism_ai_lint/
   tui_services.py
   update_followup.py
 pyproject.toml
+reports/
+  specs/
+    baseline-suppressions.md
+    canonical-agent-model.md
+    dated-references.md
+    design-contract-sections.md
+    fix-plan-transactions.md
+    plugin-trust-gate.md
+    quality-ratchet.md
+    sarif-output.md
+    security-test-matrix.md
+    structured-findings.md
 scripts/
   gen_context_files.py
   quality_gate.py
@@ -369,6 +381,7 @@ tests/
   test_untrusted_policy_model.py
   test_update_check.py
   test_update_followup.py
+  test_version_detect.py
   test_why_manual.py
 
 ## Key configuration
