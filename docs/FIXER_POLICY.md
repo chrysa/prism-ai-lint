@@ -9,7 +9,8 @@ project's core invariant; treat it as binding, not aspirational. Architecture co
 An automatic action may **tighten, repair, or stay neutral**. It may **never loosen**.
 Concretely, no code path (`--fix`, `--generate`, `-i`, scaffolding) may:
 
-- add or widen an `allow` permission rule, or broaden a matcher;
+- add or widen an `allow` permission rule, or broaden a matcher — the one documented exception is the
+  `--generate` baseline below, which allows only local, read-only or self-contained commands;
 - remove or weaken a `deny` / `ask` rule;
 - enable a control that was disabled (hooks, bypass-permissions, project MCP servers…);
 - add assistant/AI attribution;
@@ -42,6 +43,14 @@ If a change *could* loosen, it is **reported as a finding and left for the human
 ## What `--generate` / scaffolding may create
 
 - Baseline `settings.json` with attribution off, secrets denied, external actions on `ask`.
+- Baseline `allow` rules for the detected stack (D-045), merged into an existing `settings.json` only when no
+  existing rule already covers them: read-only git (`status`, `diff`, `log`, `show`, `branch`), the
+  `safe_make_targets` (test, lint, format, check, build, typecheck, ps, help, doctor, validate), the Python and
+  package-manager test/lint/typecheck/format commands, and read-only `docker` / `docker compose` / `kubectl` /
+  `helm` / `terraform plan` / `gh` views. Anything that changes the repository history (`git add`, `git commit`),
+  starts or stops services (`make up`/`down`/`dev`/`run`/`logs`, `docker compose up`/`down`), or acts outside the
+  working tree (the `gated_make_targets`, `external_action_prefixes`) is generated as `ask`, never `allow`. A
+  target listed in both `safe_make_targets` and `gated_make_targets` is asked.
 - Format hook, `check` / `review-changes` skills, read-only reviewer subagents.
 - `.mcp.json` for detected services (never with an inline secret — env refs only).
 - Security files ([../README.md](../README.md) → Generation): a portable `PreCompact`

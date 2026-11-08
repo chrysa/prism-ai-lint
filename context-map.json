@@ -23,11 +23,13 @@
   ],
   "key_directories": [
     ".claude",
+    ".codex",
     ".devcontainer",
     ".github",
     "docs",
     "examples",
     "prism_ai_lint",
+    "reports",
     "scripts",
     "skills",
     "standards",
