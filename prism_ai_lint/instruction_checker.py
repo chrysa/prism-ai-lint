@@ -39,7 +39,11 @@ class InstructionChecker:
         seen = seen if seen is not None else {path.resolve()}
         for ref, target in import_targets(path, text):
             log(2, f"import @{ref} (depth {depth})", 2)
-            if not target.exists():
+            try:
+                present = target.exists()
+            except OSError:  # name too long, no permission: the import can not load either
+                present = False
+            if not present:
                 rep.add("error", "IMPORT_MISSING", path, f"@{ref} does not resolve")
                 continue
             if depth > policy["instructions"]["max_import_depth"]:

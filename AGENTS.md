@@ -175,3 +175,8 @@ CLI wrapper: `prism-ai-lint.py`. Standard library only (PyYAML optional for the 
 ### Local AI orchestration & local-first · `standards/rules/ai-orchestration.md`
 - AI orchestration & local-first
 <!-- chrysa:standards-agents:end -->
+
+## Output surfaces
+
+Before changing what Prism prints, asks or emits (report wording, grouping, exit codes, JSON
+fields, the `-i` review), read [DESIGN.md](DESIGN.md) and update it in the same change.

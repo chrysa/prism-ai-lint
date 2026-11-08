@@ -10,26 +10,127 @@ Cut the tokens AI coding agents burn on every request: lint, repair and guard th
 .claude/
   agents/
     code-reviewer.md
+    general-backend-developer.md
+    general-code-quality-debugger.md
+    general-devops.md
+    general-frontend-developer.md
+    general-fullstack-developer.md
+    general-pm.md
+    general-qa.md
+    general-solution-architect.md
+    general-technical-project-lead.md
+    general-technical-writer.md
     security-auditor.md
     test-runner.md
+  commands/
+    adr-new.md
+    commit.md
+    custom-init.md
+    help-commands.md
+    issue.md
+    reviewpr.md
+    test.md
+    wf-bugfix.md
+    wf-decision.md
+    wf-feature.md
+    wf-fleet-sweep.md
+    wf-issue.md
+    wf-pr-review.md
+    wf-release-lib.md
   hooks/
     format.py
   rules/
     conventions.md
   settings.json
   skills/
+    adr-new/
+      SKILL.md
     check/
+      SKILL.md
+      references/
+      reviewers/
+      scripts/
+    cli/
+      SKILL.md
+    commit/
+      SKILL.md
+    council/
+      SKILL.md
+    custom-init/
+      SKILL.md
+    gitnexus/
+      gitnexus-cli/
+      gitnexus-debugging/
+      gitnexus-exploring/
+      gitnexus-guide/
+      gitnexus-impact-analysis/
+      gitnexus-refactoring/
+    help-commands/
+      SKILL.md
+    hunt/
+      SKILL.md
+    implement/
+      SKILL.md
+    issue/
+      SKILL.md
+    plan-execute/
+      SKILL.md
+    plan-start/
+      SKILL.md
+    plan-validate/
+      SKILL.md
+    plan/
       SKILL.md
     review-changes/
       SKILL.md
+    reviewpr/
+      SKILL.md
+    rollout-status/
+      SKILL.md
+    spec/
+      SKILL.md
+    standards-authoring/
+      SKILL.md
+    test/
+      SKILL.md
+    verification-loop/
+      SKILL.md
+  workflows/
+    README.md
+    bugfix.js
+    feature.js
+    fleet-sweep.js
+    pr-review.js
 .devcontainer/
   devcontainer.json
+.editorconfig
+.env.example
+.gitattributes
 .github/
+  CODEOWNERS
+  actionlint.yaml
+  auto_assign.yml
+  copilot-instructions.md
+  dependabot.yml
+  labeler.yml
+  labels.yml
   workflows/
+    action-check.yml
+    approved-label.yml
+    auto-assign.yml
     ci.yml
+    dependabot-auto-merge.yml
+    detect-conflicts.yml
     docs.yml
+    enforce-shortcut-link.yml
+    labeler.yml
+    pr-dependencies.yml
+    pull-request-size.yml
     release.yml
+    sync-labels.yml
+    update-pr-body.yml
 .gitignore
+.guideline-baseline.json
 .pre-commit-config.yaml
 .pre-commit-hooks.yaml
 .prism-ai-lint.toml
@@ -37,7 +138,11 @@ AGENTS.md
 ARCHITECTURE.md
 CHANGELOG.md
 CLAUDE.md
+CONTRIBUTING.md
 DECISIONS.md
+DESIGN.md
+Dockerfile
+GitVersion.yml
 LICENSE
 Makefile
 NOTICE
@@ -49,12 +154,14 @@ docs/
   CONVENTIONS.md
   EXTERNAL_REFERENCES.md
   FIXER_POLICY.md
+  RELEASING.md
   agent-conversion.md
   desktop-compatibility.md
   tui.md
   user/
     automation.md
     checks.md
+    codex.md
     configuration.md
     guard.md
     index.md
@@ -65,6 +172,7 @@ examples/
   plugins/
     example_check.py
 mkdocs.yml
+opencode.json
 prism-ai-lint.example.toml
 prism-ai-lint.py
 prism_ai_lint/
@@ -73,6 +181,7 @@ prism_ai_lint/
   _markup.py
   _reference.py
   _runtime.py
+  agent_aligner.py
   agent_contract.py
   agent_converter.py
   agents_adapter.py
@@ -81,46 +190,90 @@ prism_ai_lint/
   claude_adapter.py
   claude_files_checker.py
   codex_adapter.py
+  codex_checker.py
+  codex_layer.py
+  codex_messages.py
+  codex_patch.py
+  codex_rules.py
   compression_checker.py
   config_flags.py
   content_validation.py
   critical_content_policy.py
+  design_contract_checker.py
   desktop_checker.py
   env_checker.py
   feedback_renderer.py
   finding.py
   git_runner.py
   guard_checker.py
+  guard_command.py
   hook_checker.py
   instruction_checker.py
   issue_reporter.py
+  json_key_order.py
   llmtrim_checker.py
   mcp_checker.py
   mod_checker.py
+  other_tools_checker.py
+  patch_chunk.py
+  patch_error.py
+  patch_op.py
   pdf_checker.py
+  permission_rules_checker.py
   plugin_registry.py
   portfolio_checker.py
+  prefix_rule.py
   project_profile.py
   report.py
   restore_log.py
+  rules_parse_error.py
   secret_scan.py
   self_update.py
   self_update_config.py
   skill_agent_checker.py
+  surfaces_checker.py
   terminal_view.py
   tui_app.py
   tui_services.py
   update_followup.py
 pyproject.toml
+scripts/
+  gen_context_files.py
+  quality_gate.py
 skills/
   config-audit/
     SKILL.md
 sonar-project.properties
+standards/
+  rules/
+    README.md
+    accessibility.md
+    agents.md
+    ai-orchestration.md
+    api.md
+    architecture.md
+    backend-python.md
+    ci-cd.md
+    code-quality.md
+    containers.md
+    data.md
+    design.md
+    dev-loop.md
+    docs.md
+    frontend.md
+    governance.md
+    observability.md
+    product.md
+    scm.md
+    security.md
+    stack.md
+    testing.md
 tests/
   _selfcheck.py
   conftest.py
   test_actions.py
   test_agent_conversion.py
+  test_agents_import_position.py
   test_ape_checker.py
   test_ape_hook_checker.py
   test_attribution_perf.py
@@ -129,6 +282,9 @@ tests/
   test_catalog.py
   test_change_verbosity.py
   test_claude_files_checker.py
+  test_codex_align.py
+  test_codex_checker.py
+  test_codex_parsers.py
   test_compression_checker.py
   test_config_flags.py
   test_config_model_effort_scope.py
@@ -136,6 +292,7 @@ tests/
   test_critical_content_validation.py
   test_critical_extra.py
   test_dead_key_fix.py
+  test_design_contract.py
   test_desktop_checker.py
   test_discovery.py
   test_duplicate_keeper.py
@@ -152,6 +309,7 @@ tests/
   test_generated_loaded.py
   test_gitignore_fix.py
   test_guard.py
+  test_guard_codex.py
   test_heaviest_items.py
   test_hook_checker.py
   test_hook_conflict.py
@@ -162,6 +320,7 @@ tests/
   test_interactive.py
   test_interactive_keys.py
   test_issue_reporter.py
+  test_json_key_order.py
   test_lang.py
   test_llmtrim.py
   test_llmtrim_checker.py
@@ -172,15 +331,19 @@ tests/
   test_mod_checker.py
   test_model_lineup.py
   test_other_tools.py
+  test_other_tools_checker.py
   test_pdf_checker.py
+  test_permission_rules_checker.py
   test_plugins.py
   test_portfolio_checker.py
   test_precommit_hook.py
   test_procedure_section_safety.py
+  test_product_surface_aliases.py
   test_progress.py
   test_project_profile.py
   test_readonly.py
   test_reference_settings_modes.py
+  test_reference_snapshot.py
   test_register_plugin.py
   test_rename_transition.py
   test_restore.py
@@ -197,10 +360,12 @@ tests/
   test_skill_description_proposal.py
   test_smoke.py
   test_subagent_model.py
+  test_surfaces_checker.py
   test_token_levers.py
   test_tui_app.py
   test_tui_progress.py
   test_unknown_key_suggestion.py
+  test_untrusted_input_hardening.py
   test_untrusted_policy_model.py
   test_update_check.py
   test_update_followup.py
@@ -220,8 +385,9 @@ prism-ai-lint.py
 prism_ai_lint/__init__.py
 prism_ai_lint/_engine.py
 prism_ai_lint/_markup.py — Text helpers for Markdown instruction files: frontmatter, code spans, comments, @imports.
-prism_ai_lint/_reference.py — Reference data: docs snapshot (2026-09), attribution patterns and scaffold templates.
+prism_ai_lint/_reference.py — Reference data: docs snapshot (2026-10), attribution patterns and scaffold templates.
 prism_ai_lint/_runtime.py — Per-run state and base helpers shared by the engine and the checker modules.
+prism_ai_lint/agent_aligner.py — Claude Code <-> Codex parity (--align): what one tool enforces or loads that the other does not.
 prism_ai_lint/agent_contract.py — Lossless, source-aware project instruction representation.
 prism_ai_lint/agent_converter.py — Read-only project contract conversion plans; never write critical files.
 prism_ai_lint/agents_adapter.py — Neutral AGENTS project contract mapping.
@@ -230,27 +396,26 @@ prism_ai_lint/ape_hook_checker.py — Checks on a repo's prompt-engineering hook
 prism_ai_lint/claude_adapter.py — Explicit Claude project instruction mapping.
 prism_ai_lint/claude_files_checker.py — Checks on a repo's agent instruction files and its skill/subagent listing. Reports only.
 prism_ai_lint/codex_adapter.py — Codex maps project instructions to AGENTS.md, with override precedence.
+prism_ai_lint/codex_checker.py — Codex (OpenAI) configuration checks: config.toml, hooks, rules, custom agents, skills and AGENTS.md.
+prism_ai_lint/codex_layer.py — A Codex configuration layer: the Codex home ($CODEX_HOME, ~/.codex) or a project .codex/ folder.
+prism_ai_lint/codex_messages.py — Codex and Claude Code <-> Codex (--align) finding texts: hints and brief-report rows.
+prism_ai_lint/codex_patch.py — Codex `apply_patch` envelopes: parse them and rebuild the edited file text, so the guard can
+prism_ai_lint/codex_rules.py — Codex `.rules` files: `prefix_rule(...)` calls in Starlark, read statically and never executed.
 prism_ai_lint/compression_checker.py — Compression layers checker: rtk, llmtrim and a routing gateway can compress the same traffic twice.
 prism_ai_lint/config_flags.py — CLI defaults from the [flags] table of the policy file, limited to options that never write.
 prism_ai_lint/content_validation.py — Human validation gates for critical content files.
 prism_ai_lint/critical_content_policy.py — Critical content policy defaults.
+prism_ai_lint/design_contract_checker.py — Optional `DESIGN.md` product design contracts: discovery, size, imports, local links and wiring.
 prism_ai_lint/desktop_checker.py — Bounded, read-only desktop portability observations.
 prism_ai_lint/env_checker.py — Checks for the `env` block and sandbox keys of a settings file.
 prism_ai_lint/feedback_renderer.py — Machine-readable feedback contract for findings.
 prism_ai_lint/finding.py — Finding model emitted by prism-ai-lint checks.
 prism_ai_lint/git_runner.py — Small git command runner used by prism-ai-lint integrations.
 prism_ai_lint/guard_checker.py — PreToolUse checks that block configuration loosening and unvalidated critical edits.
+prism_ai_lint/guard_command.py — The prism-ai-lint guard as a hook command: recognise a plain call and build the canonical one.
 prism_ai_lint/hook_checker.py — Hook configuration checks: events, matchers, handlers and hook scripts.
 prism_ai_lint/instruction_checker.py — Instruction files, rules and auto memory: size, @imports, AGENTS.md wiring, rule frontmatter.
 prism_ai_lint/issue_reporter.py — Anonymized issue report: unfixed findings rendered as Markdown for the public tracker.
+prism_ai_lint/json_key_order.py — Keep a JSON file's sorted key order across repairs.
 prism_ai_lint/llmtrim_checker.py — llmtrim integration checker — detect and recommend compression.
 prism_ai_lint/mcp_checker.py — MCP configuration checks: .mcp.json servers and the read-only ~/.claude.json.
-prism_ai_lint/mod_checker.py — Checks for mods: plugins whose hooks/hooks.json lists TypeScript/JavaScript `modules`.
-prism_ai_lint/pdf_checker.py — PDF checker: heavy PDFs reachable from agent context should be exported as light text.
-prism_ai_lint/plugin_registry.py — Plugin loading and execution registry.
-prism_ai_lint/portfolio_checker.py — Portfolio checker: the same agents or skills copied into many scanned projects.
-prism_ai_lint/project_profile.py — Project stack and profile detection.
-prism_ai_lint/report.py — Report model and edit accumulator.
-prism_ai_lint/restore_log.py — Crash-resistant restore script writer.
-prism_ai_lint/secret_scan.py — Inline secret detection in env, headers and args mappings (settings, hooks, MCP).
-prism_ai_lint/self_update.py — Interactive self-update prompt for clone-based prism-ai-lint installs.

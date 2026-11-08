@@ -50,3 +50,24 @@ deny and the guard hook; it never copies MCP servers, skills, subagents or instr
 
 Run `prism-ai-lint --dump-reference` to see the documentation snapshot the checks compare against.
 Unknown keys are reported as info, never as errors.
+
+## Design contracts
+
+A `DESIGN.md` is optional. When one exists — at the root or next to a frontend (`web/DESIGN.md`,
+`frontend/DESIGN.md`) — Prism reports four separate facts about it:
+
+| Fact | What Prism checks | Finding when it fails |
+| ---- | ----------------- | --------------------- |
+| **Present** | Deterministic discovery: hidden, dependency, build, cache and git-ignored trees are skipped; linked directories are not followed; a symlinked `DESIGN.md` is read only when it resolves inside the project. | `DESIGN_EXTERNAL` for a symlink out of the project |
+| **Analysed** | `@` imports, local Markdown links (resolved from the contract's folder), `make` / `npm run` commands against the nearest `Makefile` / `package.json`, size against an on-demand budget (`design_warn_lines`, `design_warn_tokens`). | `IMPORT_MISSING`, `DESIGN_DEAD_LINK`, `INSTR_DEAD_REF`, `DESIGN_LONG` |
+| **Referenced** | An instruction file (`CLAUDE.md`, `AGENTS.md`, `.claude/rules/`, Copilot/Gemini renders, a nested `CLAUDE.md`/`AGENTS.md`) or a referenced contract names it. | `DESIGN_UNREFERENCED` |
+| **Loaded at launch** | An always-loaded instruction file `@`-imports it. | `DESIGN_ALWAYS_LOADED` (info: prefer an on-demand reference) |
+
+No agent loads a file because it is named `DESIGN.md`: reference it from your instructions for UI
+work. Prism can only see that reference statically; whether an agent actually read the contract in a
+session is not something a linter can know.
+
+The contract is never edited and never style-linted: design rationale is content, not filler. To
+have the guard ask for human validation before an agent changes it, list it under `[critical]
+extra_files`. Prism imposes no section schema, brand or organisation policy, and static checks do not
+certify visual quality, usability or accessibility.

@@ -144,7 +144,7 @@ from prism_ai_lint.agent_aligner import AgentAligner
 from prism_ai_lint.agent_contract import AgentContract
 from prism_ai_lint.agent_converter import ADAPTERS, ECOSYSTEMS, AgentConverter, canonical
 from prism_ai_lint.ape_hook_checker import ApeHookChecker
-from prism_ai_lint.claude_files_checker import ClaudeFilesChecker
+from prism_ai_lint.claude_files_checker import DESIGN_CONTRACTS, ClaudeFilesChecker
 from prism_ai_lint.codex_checker import CodexChecker
 from prism_ai_lint.codex_layer import CodexLayer
 from prism_ai_lint.codex_messages import CODEX_BRIEF_EN, CODEX_BRIEF_FR, CODEX_HINTS
@@ -223,6 +223,10 @@ DEFAULT_POLICY: dict[str, Any] = {
         "project_warn_lines": 200,  # documented target: under 200 lines per file
         "warn_tokens": 5000,
         "max_import_depth": 4,  # documented maximum: four hops
+        # DESIGN.md contracts load on demand (only when an agent reads them for UI work), so they get
+        # a larger budget than always-loaded instructions; past it, split journeys or evidence out.
+        "design_warn_lines": 400,
+        "design_warn_tokens": 10000,
         "doctrine_dir": "doctrine/rules",
         "generated_marker": "GENERATED",
         # Instruction files that mirror AGENTS.md for other agent tools. Index 0
@@ -1798,6 +1802,26 @@ HINTS.update(
         ),
         "INSTR_DEAD_REF": (
             "An instruction file that names a missing command or file sends the agent on a search; fix or remove the line.",
+            DOCS + "memory",
+        ),
+        "DESIGN_LONG": (
+            "A design contract is read whole when an agent starts UI work; past its budget, move journeys or evidence into linked files.",
+            DOCS + "memory",
+        ),
+        "DESIGN_UNREFERENCED": (
+            "Agents load CLAUDE.md, AGENTS.md and rules by name, never DESIGN.md: without a pointer the contract is not read.",
+            DOCS + "memory",
+        ),
+        "DESIGN_ALWAYS_LOADED": (
+            "An @import loads the file at launch with the file that imports it; a plain reference costs nothing until UI work.",
+            DOCS + "memory#import-additional-files",
+        ),
+        "DESIGN_EXTERNAL": (
+            "A DESIGN.md symlink that leaves the project is not read: its content is outside what the repository controls.",
+            DOCS + "memory",
+        ),
+        "DESIGN_DEAD_LINK": (
+            "A design contract that links a missing token file, spec or asset points the agent at nothing; fix or remove the link.",
             DOCS + "memory",
         ),
         "TOKEN_LISTING_BUDGET": (
@@ -5066,6 +5090,15 @@ BRIEF_FR = {
         "@import vers un fichier introuvable",
         "corriger ou retirer l'import",
     ),
+    "DESIGN_DEAD_LINK": ("broken", "lien local mort dans un DESIGN.md", "corriger ou retirer le lien"),
+    "DESIGN_EXTERNAL": ("other", "DESIGN.md lié hors du projet : non analysé", "copier le contrat dans le dépôt"),
+    "DESIGN_UNREFERENCED": (
+        "other",
+        "DESIGN.md jamais référencé : aucun agent ne le lit",
+        "le citer depuis AGENTS.md / CLAUDE.md, une règle ou le contrat racine",
+    ),
+    "DESIGN_ALWAYS_LOADED": ("tokens", "DESIGN.md importé à chaque session", "préférer une référence à la demande"),
+    "DESIGN_LONG": ("tokens", "DESIGN.md au-delà de son budget", "déplacer parcours ou preuves dans des fichiers liés"),
     "AGENT_FRONTMATTER": (
         "broken",
         "fichier dans agents/ qui n'est pas un agent",
@@ -5259,6 +5292,19 @@ BRIEF_EN = {
         "add SKILL.md or delete the folder",
     ),
     "IMPORT_MISSING": ("broken", "@import to a missing file", "fix or remove the import"),
+    "DESIGN_DEAD_LINK": ("broken", "dead local link in a DESIGN.md", "fix or remove the link"),
+    "DESIGN_EXTERNAL": (
+        "other",
+        "DESIGN.md linked outside the project: not analysed",
+        "copy the contract into the repo",
+    ),
+    "DESIGN_UNREFERENCED": (
+        "other",
+        "DESIGN.md never referenced: no agent reads it",
+        "name it from AGENTS.md / CLAUDE.md, a rule or the root contract",
+    ),
+    "DESIGN_ALWAYS_LOADED": ("tokens", "DESIGN.md imported into every session", "prefer an on-demand reference"),
+    "DESIGN_LONG": ("tokens", "DESIGN.md past its budget", "move journeys or evidence into linked files"),
     "AGENT_FRONTMATTER": (
         "broken",
         "file under agents/ that is not an agent",
@@ -6293,6 +6339,9 @@ def lint_repo(repo: Path, policy: dict, rep: Report, history: bool, user_text: s
         t = _INSTRUCTIONS.check_instruction_file(repo / rel, "project", policy, rep, repo)
         if t:
             texts.append(t)
+    # Optional DESIGN.md contracts: on-demand documents with their own budget, never style-linted
+    # (design rationale is content, not filler) and never edited.
+    DESIGN_CONTRACTS.check_repo(repo, policy, rep, _INSTRUCTIONS)
     _INSTRUCTIONS.check_agents_md(repo, policy, rep)
     _INSTRUCTIONS.check_rendered(repo, policy, rep)
     if user_text and texts:

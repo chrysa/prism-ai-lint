@@ -156,11 +156,11 @@ def git(repo: Path, *args: str) -> str | None:
 
 
 def is_ignored(repo: Path, rel: str) -> bool:
-    return git(repo, "check-ignore", "-q", rel) is not None
+    return git(repo, "check-ignore", "-q", "--", rel) is not None  # "--": a path is never an option
 
 
 def is_tracked(repo: Path, rel: str) -> bool:
-    return git(repo, "ls-files", "--error-unmatch", rel) is not None
+    return git(repo, "ls-files", "--error-unmatch", "--", rel) is not None
 
 
 def add_gitignore(repo: Path, entry: str, rep: Report) -> None:

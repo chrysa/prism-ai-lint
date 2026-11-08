@@ -4,6 +4,22 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-044 · DESIGN.md is an optional, on-demand contract: wired, linked and sized, never judged
+A `DESIGN.md` (root or nested) is discovered deterministically — hidden, dependency, build, cache and git-ignored
+trees skipped, linked directories not followed, a symlink kept only when it resolves inside the project — and checked
+for `@` imports, local Markdown links (`DESIGN_DEAD_LINK`, resolved from the contract's own folder), commands against
+its nearest `Makefile` / `package.json`, and an on-demand size budget (`design_warn_lines` 400 /
+`design_warn_tokens` 10000, `DESIGN_LONG`). Prism reports four separate facts: present, analysed, referenced by an
+instruction file (`DESIGN_UNREFERENCED` when not), and loaded at launch by an `@import` from an always-loaded file
+(`DESIGN_ALWAYS_LOADED`). It is not style-linted and no fixer edits it.
+**Why:** no agent loads a file because it is called `DESIGN.md`; a contract only works when an instruction file points
+to it, and it costs context only when it is read for UI work, so the 200-line target of always-loaded files and the
+"write terse bullets" style hints would push design rationale towards compression. Prism stays generic: it requires no
+contract, imposes no section schema, brand or organisation policy, and does not certify usability, visual quality or
+accessibility — those need a run of the product. **Reverse when:** a documented loader starts reading `DESIGN.md` by
+name (then `DESIGN_UNREFERENCED` is wrong), or contracts are routinely imported at launch (then the always-loaded
+budget applies).
+
 ## D-043 · The AGENTS.md import goes after a leading title
 When `CLAUDE.md` does not import `AGENTS.md`, `--fix` adds `@AGENTS.md` as the first line, or right after the
 first line when that line is a level-1 heading (`# Title`). Claude Code expands an `@import` wherever it stands,
