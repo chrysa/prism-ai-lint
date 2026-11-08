@@ -221,6 +221,7 @@ prism_ai_lint/
   pdf_checker.py
   permission_rules_checker.py
   plugin_registry.py
+  plugin_trust.py
   portfolio_checker.py
   prefix_rule.py
   project_profile.py
@@ -238,6 +239,8 @@ prism_ai_lint/
   update_followup.py
 pyproject.toml
 reports/
+  plans/
+    plugin-trust-gate.md
   specs/
     baseline-suppressions.md
     canonical-agent-model.md
@@ -346,6 +349,7 @@ tests/
   test_other_tools_checker.py
   test_pdf_checker.py
   test_permission_rules_checker.py
+  test_plugin_trust.py
   test_plugins.py
   test_portfolio_checker.py
   test_precommit_hook.py

@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
+from prism_ai_lint.plugin_trust import PluginTrust
 from prism_ai_lint.report import Report
 
 ReadTextFn = Callable[[Path], str | None]
@@ -31,22 +32,24 @@ class PluginRegistry:
         self._brief_en = brief_en
         self.checks: list = []
         self.loaded: list = []
+        self.trust: PluginTrust | None = None
 
-    def plugin_dirs(self, extra: list[Path] | None = None) -> list[Path]:
-        dirs = [
-            self._config_dir_fn() / "plugins",
-            Path.cwd() / ".prism-ai-lint" / "plugins",
-            Path.cwd() / ".ai-lint" / "plugins",
-        ]
-        dirs += list(extra or [])
-        return [directory for directory in dirs if directory.is_dir()]
+    def default_trust(self) -> PluginTrust:
+        """Non-interactive trust: what a run without a prompt function may load."""
+        return PluginTrust(self._config_dir_fn(), Path.cwd(), interactive=False)
 
-    def load(self, extra: list[Path] | None = None) -> None:
-        """Import every plugin and call register(api). Broken plugins are skipped."""
-        for directory in self.plugin_dirs(extra):
-            for file in sorted(directory.glob("*.py")):
-                if file.name.startswith("_"):
-                    continue
+    def plugin_dirs(self, extra: list[Path] | None = None, trust: PluginTrust | None = None) -> list[Path]:
+        return [source.path for source in (trust or self.default_trust()).sources(extra)]
+
+    def load(self, extra: list[Path] | None = None, trust: PluginTrust | None = None) -> None:
+        """Import the plugins of every trusted directory and call register(api). Broken plugins are skipped.
+
+        `extra` directories are an explicit opt-in. Other directories go through `trust` (D-046).
+        """
+        trust = trust or self.default_trust()
+        self.trust = trust
+        for source in trust.sources(extra):
+            for file in trust.approve(source):  # exactly the approved files, never a second glob
                 try:
                     spec = importlib.util.spec_from_file_location(f"ai_lint_plugin_{file.stem}", file)
                     if not spec or not spec.loader:
@@ -64,6 +67,11 @@ class PluginRegistry:
                         1,
                         f"plugin {file.name}: failed to load ({error.__class__.__name__}: {error})",
                     )
+
+    def report_trust(self, report: Report) -> None:
+        """Add the findings of the last load's trust decisions (skipped or deprecated directories)."""
+        if self.trust is not None:
+            self.trust.report(report)
 
     def run_checks(self, scope: str, root: Path, policy: dict, report: Report) -> None:
         for code, check_scope, check_fn in self.checks:
