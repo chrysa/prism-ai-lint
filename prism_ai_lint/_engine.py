@@ -3089,7 +3089,7 @@ def main() -> int:
     except (ValueError, OSError, AttributeError):
         return 0
     if kb > LIMIT_KB:
-        print(f"{path} is {kb} KB: read it with offset and limit, or grep for what you need.", file=sys.stderr)
+        sys.stderr.write(f"{path} is {kb} KB: read it with offset and limit, or grep for what you need.\n")
         return 2
     return 0
 
