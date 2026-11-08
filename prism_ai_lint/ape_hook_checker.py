@@ -32,7 +32,7 @@ def _prompt_commands(settings: Any) -> list[str]:
     for block in blocks if isinstance(blocks, list) else []:
         for handler in block.get("hooks", []) if isinstance(block, dict) else []:
             if isinstance(handler, dict) and isinstance(handler.get("command"), str):
-                out.append(handler["command"])
+                out.append(handler["command"])  # noqa: PERF401
     return out
 
 

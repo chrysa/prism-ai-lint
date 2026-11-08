@@ -17,8 +17,8 @@ from prism_ai_lint.update_followup import UpdateFollowUp
 
 
 class SelfUpdater:
-    yes_answers = {"y", "yes", "o", "oui"}
-    disabled_values = {"0", "false", "no", "off"}
+    yes_answers = frozenset({"y", "yes", "o", "oui"})
+    disabled_values = frozenset({"0", "false", "no", "off"})
 
     def __init__(self, config: SelfUpdateConfig | None = None) -> None:
         self.config = config or SelfUpdateConfig.from_env()
@@ -33,7 +33,7 @@ class SelfUpdater:
             f"{local_sha[:12]} -> {remote_sha[:12]}."
         )
 
-    def check(self, args: Any, force: bool = False) -> None:
+    def check(self, args: Any, force: bool = False) -> None:  # noqa: C901, PLR0911, PLR0912
         if self._skip_for_run(args, force):
             return
         if not self._due(force):

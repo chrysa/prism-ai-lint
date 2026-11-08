@@ -3,6 +3,8 @@ user_max_lines = 150
 project_warn_lines = 200
 warn_tokens = 5000
 max_import_depth = 4
+design_warn_lines = 400
+design_warn_tokens = 10000
 doctrine_dir = "doctrine/rules"
 generated_marker = "GENERATED"
 rendered_files = ["CLAUDE.md", "AGENTS.md", ".github/copilot-instructions.md", ".cursorrules", ".windsurfrules", "GEMINI.md"]
@@ -55,6 +57,11 @@ side_effect_words = ["deploy", "release", "publish", "push", "send", "delete", "
 
 [mcp]
 max_servers = 6
+
+[codex]
+enabled = true
+max_effort = "high"
+extra_keys = []
 
 [portfolio]
 min_projects = 5

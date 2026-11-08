@@ -68,7 +68,7 @@ class Anonymizer:
         text = ABS_PATH_RE.sub(lambda m: self.token("PATH", m.group(0)), text)
         text = REL_PATH_RE.sub(lambda m: self.token("PATH", m.group(0)), text)
         for name in self._names:
-            pat = re.escape(name) if len(name) >= 3 else rf"\b{re.escape(name)}\b"
+            pat = re.escape(name) if len(name) >= 3 else rf"\b{re.escape(name)}\b"  # noqa: PLR2004
             text = re.sub(pat, lambda m: self.token("NAME", m.group(0)), text, flags=re.IGNORECASE)
         return QUOTED_RE.sub(self._quoted, text)
 

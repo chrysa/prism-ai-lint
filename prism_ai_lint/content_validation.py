@@ -22,12 +22,13 @@ class CriticalContentValidator:
         rel = self._relative_path(path)
         if rel is None:
             return False
+        name = rel.name.casefold()  # case-insensitive filesystems (macOS, WSL /mnt/c) reach the same file
         if len(rel.parts) == 1:
-            if rel.name in self.policy.instruction_files:
+            if name in {f.casefold() for f in self.policy.instruction_files}:
                 return True
-            if rel.name in self.policy.config_files:
+            if name in {f.casefold() for f in self.policy.config_files}:
                 return True
-        if len(rel.parts) == 2 and rel.parts[0] == "docs" and rel.name in self.policy.docs_files:
+        if len(rel.parts) == 2 and rel.parts[0] == "docs" and rel.name in self.policy.docs_files:  # noqa: PLR2004
             return True
         if rel.as_posix() in self.policy.extra_paths:
             return True
@@ -46,7 +47,7 @@ class CriticalContentValidator:
     def _is_rule_file(self, rel: Path) -> bool:
         parts = rel.parts
         return (
-            len(parts) >= 3
+            len(parts) >= 3  # noqa: PLR2004
             and parts[0] == self.policy.rule_dir_parts[0]
             and parts[1] == self.policy.rule_dir_parts[1]
             and rel.suffix == ".md"

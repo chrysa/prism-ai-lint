@@ -79,7 +79,11 @@ def import_targets(path: Path, text: str) -> list[tuple[str, Path]]:
         if not target.is_absolute():
             target = path.parent / target
         explicit = ref.startswith(("~/", "./", "../", "/")) or re.search(r"\.\w{1,6}$", ref)
-        if target.exists() or explicit:
+        try:
+            present = target.exists()
+        except OSError:  # name too long, no permission: Python 3.13 raises where 3.14 returns False
+            present = False
+        if present or explicit:
             refs.append((ref, target))
     return refs
 
@@ -99,7 +103,7 @@ def derive_description(text: str) -> str | None:
             l.strip() for l in para.splitlines() if l.strip() and not l.lstrip().startswith(("#", "|", ">", "!"))
         )
         para = re.sub(r"[*_`]", "", para).strip(" -")
-        if len(para) >= 20:
+        if len(para) >= 20:  # noqa: PLR2004
             return re.split(r"(?<=[.!?])\s", para)[0][:300]
     return None
 
@@ -162,9 +166,9 @@ def move_to_metadata(text: str, keys: list[str]) -> str:
         return text
     block = ["  " + l for e in moved for l in e]
     if meta_idx is None:
-        keep.append(["metadata:"] + block)
+        keep.append(["metadata:", *block])
     else:
-        keep[meta_idx] = [re.sub(r"^metadata\s*:.*$", "metadata:", keep[meta_idx][0])] + keep[meta_idx][1:] + block
+        keep[meta_idx] = [re.sub(r"^metadata\s*:.*$", "metadata:", keep[meta_idx][0]), *keep[meta_idx][1:], *block]
     return "---\n" + "\n".join(l for e in keep for l in e) + "\n---" + body
 
 

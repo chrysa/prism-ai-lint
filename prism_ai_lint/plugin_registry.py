@@ -59,7 +59,7 @@ class PluginRegistry:
                         self.loaded.append(file.stem)
                     else:
                         self._log_fn(1, f"plugin {file.name}: no register(api), skipped")
-                except Exception as error:  # noqa: BLE001 - never let a plugin crash the run
+                except Exception as error:  # noqa: BLE001
                     self._log_fn(
                         1,
                         f"plugin {file.name}: failed to load ({error.__class__.__name__}: {error})",
@@ -71,7 +71,7 @@ class PluginRegistry:
                 continue
             try:
                 check_fn(self._context(scope, root, policy, report))
-            except Exception as error:  # noqa: BLE001 - isolate a misbehaving plugin check
+            except Exception as error:  # noqa: BLE001
                 self._log_fn(1, f"plugin check {code}: error ({error.__class__.__name__}: {error})")
 
     def _api(self, name: str) -> SimpleNamespace:

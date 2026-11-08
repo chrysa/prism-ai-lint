@@ -89,7 +89,7 @@ class TuiApp:
     def _section_rule(self, title: str) -> None:
         self.t.rule(f"[{self.position}/{len(self.chosen)}] {title}")
 
-    def _overview(self, report: Report) -> None:
+    def _overview(self, report: Report) -> None:  # noqa: C901
         self.t.rule("PROJECT OVERVIEW")
         for profile in report.project_profiles:
             print(
@@ -147,7 +147,7 @@ class TuiApp:
             print(f"  {severity.upper()} / {category} / {mode}: {len(rows)}")
             for row in rows[:5]:
                 print(f"    {row['code']} · {self.services.home_path(row['path'])}: {row['next_action']}")
-            if len(rows) > 5:
+            if len(rows) > 5:  # noqa: PLR2004
                 print(f"    +{len(rows) - 5} more; use --details or --format json for the complete report")
 
     def _pick_sections(self) -> list[str]:
@@ -303,7 +303,7 @@ class TuiApp:
         auto_all = self.full_yes
         for number, (why, group) in enumerate(self.dups, 1):
             members = [member for member in group if Path(member["path"]).exists()]
-            if len(members) < 2:
+            if len(members) < 2:  # noqa: PLR2004
                 continue
             try:
                 answer = self._duplicate_group(number, why, members, auto_all)
@@ -372,14 +372,14 @@ class TuiApp:
         )
         descs = [m["desc"] for m in members]
         pre, suf = self.services._affixes(descs)
-        if len(pre) + len(suf) > 30:
+        if len(pre) + len(suf) > 30:  # noqa: PLR2004
             print(f"  {self.t.dim}description commune : « {pre}…{suf} »{self.t.r}")
         wname = max(len(m["name"]) for m in members)
         for i, m in enumerate(members):
             mark = f"{self.t.red}✗{self.t.r}" if i in remove else f"{self.t.grn}✓{self.t.r}"
             mtime = dt.datetime.fromtimestamp(m["file"].stat().st_mtime).strftime("%d/%m/%y")
             end = len(m["desc"]) - len(suf) if suf else None
-            var = m["desc"][len(pre) : end] if len(pre) + len(suf) > 30 else m["desc"]
+            var = m["desc"][len(pre) : end] if len(pre) + len(suf) > 30 else m["desc"]  # noqa: PLR2004
             print(
                 f"  {mark} {self.t.b}{i + 1:>2}{self.t.r} {m['name']:<{wname}}  {self.services._scope_of(m):<11} "
                 f"{m['lines']:>4} l.  {mtime}  "
@@ -403,7 +403,7 @@ class TuiApp:
         )
         for n, (_, members) in enumerate(self.families, 1):
             members = [m for m in members if Path(m["path"]).exists()]
-            if len(members) < 2:
+            if len(members) < 2:  # noqa: PLR2004
                 continue
             names = [m["name"] for m in members]
             stem = os.path.commonprefix(names).rstrip("-_") or names[0]
@@ -608,7 +608,7 @@ class TuiApp:
             f"\n{self.t.b}[{n}/{len(self.long_desc)}] {sk.parent.name}{self.t.r} {self.t.dim}{len(desc)} → "
             f"{len(proposal)} caractères{self.t.r}"
         )
-        print(f"  {self.t.dim}avant :{self.t.r} {desc[:200]}{'…' if len(desc) > 200 else ''}")
+        print(f"  {self.t.dim}avant :{self.t.r} {desc[:200]}{'…' if len(desc) > 200 else ''}")  # noqa: PLR2004
         print(f"  {self.t.grn}après :{self.t.r} {proposal}")
         ans = (
             "o" if self.full_yes else self.services._ask("  o = appliquer · Entrée = passer · q = fin : ", "")

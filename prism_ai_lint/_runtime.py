@@ -6,6 +6,7 @@ import datetime as dt
 import json
 import os
 import re
+import stat
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -33,6 +34,7 @@ class RunState:
     interactive_ran: bool = False
     show_all: bool = False
     min_level: str = "info"  # hide findings below this level in the report (--min-level)
+    align: bool = False  # --align: Claude Code <-> Codex parity checks and tightening mirrors
     critical_extra: tuple[str, ...] = ()  # [critical] extra_files: repo-relative paths that need validation
 
 
@@ -57,9 +59,20 @@ def log(level: int, msg: str, indent: int = 0) -> None:
         print(f"\033[2m{line}\033[0m" if _COLOR_ERR else line, file=sys.stderr)
 
 
+MAX_READ_BYTES = 5_000_000  # a config or instruction file is never this large; bigger is skipped
+SKIPPED_READS: dict[str, str] = {}  # path -> reason; reported as FILE_NOT_SCANNED so a skip is never silent
+
+
 def read_text(p: Path) -> str | None:
     try:
         st = p.stat()
+        # Only regular files: a symlink to a device or a FIFO would block or flood the read.
+        if not stat.S_ISREG(st.st_mode):
+            SKIPPED_READS[str(p)] = "not a regular file (device, pipe or socket)"
+            return None
+        if st.st_size > MAX_READ_BYTES:
+            SKIPPED_READS[str(p)] = f"larger than {MAX_READ_BYTES} bytes"
+            return None
         key = (str(p), st.st_mtime_ns, st.st_size)
     except OSError:
         return None
@@ -70,7 +83,7 @@ def read_text(p: Path) -> str | None:
         text = p.read_text(encoding="utf-8")
     except (OSError, UnicodeDecodeError):
         return None
-    if len(_READ_CACHE) > 20000:  # bound memory on huge scans
+    if len(_READ_CACHE) > 20000:  # bound memory on huge scans  # noqa: PLR2004
         _READ_CACHE.clear()
     _READ_CACHE[key] = text
     return text
@@ -89,7 +102,7 @@ def config_dir() -> Path:
     return Path(os.path.expanduser(os.environ.get("CLAUDE_CONFIG_DIR") or "~/.claude"))
 
 
-def lenient_json(raw: str) -> tuple[Any, bool]:
+def lenient_json(raw: str) -> tuple[Any, bool]:  # noqa: C901
     """Parse JSON; on failure retry without BOM, comments and trailing commas."""
     try:
         return json.loads(raw), False
@@ -143,11 +156,11 @@ def git(repo: Path, *args: str) -> str | None:
 
 
 def is_ignored(repo: Path, rel: str) -> bool:
-    return git(repo, "check-ignore", "-q", rel) is not None
+    return git(repo, "check-ignore", "-q", "--", rel) is not None  # "--": a path is never an option
 
 
 def is_tracked(repo: Path, rel: str) -> bool:
-    return git(repo, "ls-files", "--error-unmatch", rel) is not None
+    return git(repo, "ls-files", "--error-unmatch", "--", rel) is not None
 
 
 def add_gitignore(repo: Path, entry: str, rep: Report) -> None:

@@ -24,8 +24,8 @@ a long always-loaded file is reported by `TOKEN_BUDGET` and moved to a skill by 
 
 ## Backlog (not implemented)
 
-1. **Unpinned plugin sources.** Report a marketplace or plugin whose source has no commit or tag pin
-   (supply-chain risk). Report only; choosing a commit is the human's call.
+1. ~~**Unpinned plugin sources.**~~ Implemented as `PLUGIN_SOURCE_UNPINNED` (marketplaces in
+   `extraKnownMarketplaces`). Report only; choosing a commit is the human's call.
 2. **Secrets hint.** When `API_KEY_LEAK` or a literal value in `env` is reported, suggest a credential
    broker or `${VAR}` references.
 3. **Worktrees and auto-accept.** Report a worktree directory that git does not ignore, and an
