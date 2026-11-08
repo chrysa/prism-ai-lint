@@ -56,7 +56,7 @@ Checked on `main` @ c115378:
 
 ## Tracks and steps
 
-Branches start from `main` (the real integration branch). One step = one branch, one PR, squash
+Branches start from `develop`; a `develop → main` PR cuts the release. One step = one branch, one PR, squash
 merge, no force push. Every PR: tests, docs in the same commit, `make check` and `make selfcheck`
 (`traces in repo: 0`) green, and a compatibility and rollback note in the PR body.
 
@@ -67,10 +67,10 @@ merge, no force push. Every PR: tests, docs in the same commit, `make check` and
 | O1 | Create the PyPI and TestPyPI pending publishers (`prism-ai-lint`, owner `chrysa`, `release.yml`, env `pypi` / `testpypi`) | publishing, #8 |
 | O2 | Set `DOCKERHUB_TOKEN` (account `chrys4`), then rerun the latest release run with `--failed` | Docker image, sc-5282 |
 | O3 | Delete the unused `PYPI_API_TOKEN` secret (D-039) | hygiene |
-| O4 | Rename the SonarCloud key to `chrysa_prism-ai-lint`, then mark draft #113 ready and merge it | sc-5824 |
-| O5 | Switch the default branch to `main`, or delete `develop`; then close or merge draft #112 | issue auto-close, audits read the right branch |
-| O6 | Decide the 86 open align PRs (merge with `--admin`, or merge by hand) and the `no-story` label rule for shortcut-link | align rollout |
-| O7 | Decide the 7 padam repos (neutrality hook) | align rollout |
+| O4 | ~~Rename the SonarCloud key, merge #113~~ — done 2026-11-08 | sc-5824 |
+| O5 | ~~Default branch~~ — decided 2026-11-08: keep `develop`, synced by #112; PRs target `develop`, a `develop → main` PR cuts the release | branch flow |
+| O6 | ~~Align PRs~~ — done 2026-11-08 (all merged, heads verified); react-app-generator#176 needs a review | align rollout |
+| O7 | ~~padam repos~~ — decided 2026-11-08: stay local, nothing pushed | align rollout |
 
 ### Track H — hygiene (small dev chores)
 
@@ -120,8 +120,8 @@ tested, rollback demonstrated by tests.
 - Sovereignty checks (opt-in): external endpoints, telemetry, retention, residency, offline
   capability. "Unknown provider" is never reported as "proven leak".
 - Cost analysis: separate estimates from measured values; loaded context, skills, MCP, double
-  compression. Needs a decision on D-030 (generated settings default to haiku/low), which the
-  audit asks not to impose.
+  compression. D-030 (generated settings default to haiku/low) is kept by owner decision;
+  the report states it as a default the project can override.
 - New rules from the ideas archive: `AGENT_PERSONA_BOILERPLATE`, `AGENT_CAPABILITY_OVERGRANT`,
   `AGENT_DESTRUCTIVE_UNGATED`, `AGENT_PROMISE_UNBACKED`; contradiction, rule-that-should-be-a-hook,
   vendor reference in a neutral source, hand-edited generated output; MCP/skill pruning
@@ -147,16 +147,26 @@ Track `_engine.py` line count in each PR body.
   `python tests/_selfcheck.py`, coverage), never `make`.
 - Security steps: the new tests fail on the vulnerable behaviour before the fix (red first).
 
-## Decisions needed before or during the plan
+## Decisions
 
-1. Plugin trust default (P0.1): repo-local plugins off unless trusted — proposed in the spec.
-2. Backup retention and location policy (P1.4; audit §11).
-3. Security exception policy and suppression expiry rules (P1.3).
-4. Python compatibility strategy beyond 3.13/3.14 (P0.3).
-5. D-030 vs audit §8 on default model and effort (P2 cost).
-6. QST-0466: prism-ai-lint and guideline-checker boundary (P2 policy packs).
-7. Tracking: GitHub issues per step (proposed; no Shortcut epic exists) or a new Shortcut epic
-   (Q-V3-46).
+Taken by the owner on 2026-11-08:
+
+- P0 specs approved (P0.1 to P0.5); P1 specs stay draft.
+- Plugin trust (P0.1): interactive runs ask before loading repo-local or cwd plugins; CI, pre-commit
+  and non-interactive runs never load them.
+- DESIGN.md sections (P0.4): opt-in through `[design] sections`; D-044 amended, not reversed.
+- D-030 kept: `--generate` still writes `haiku` / `low` when absent. The P2 cost work separates
+  estimates from measurements without changing this default.
+- Tracking: Shortcut epic sc-5921 (stories sc-5922 to sc-5927); PR bodies carry `[sc-xxxx]`.
+- Branch flow: PRs target `develop`; a `develop → main` PR (merge commit) cuts the release.
+- `--generate` allow scope tightened (#121, D-045): service targets and `git add/commit` are `ask`.
+
+Still open:
+
+1. Backup retention and location policy (P1.4; audit §11).
+2. Security exception policy and suppression expiry rules (P1.3).
+3. Python compatibility strategy beyond 3.13/3.14 (P0.3).
+4. QST-0466: prism-ai-lint and guideline-checker boundary (P2 policy packs).
 
 ## Risks
 

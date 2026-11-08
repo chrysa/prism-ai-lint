@@ -1,6 +1,6 @@
 ---
 name: security-test-matrix
-status: draft
+status: approved
 author: chrysa
 created: 2026-11-08
 ---
