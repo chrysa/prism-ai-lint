@@ -157,6 +157,97 @@ def test_list_plugins_shows_the_skip_reason(tmp_path):
     assert "skipped" in res.stdout and "non-interactive run" in res.stdout
 
 
+def test_control_characters_in_plugin_names_are_refused_without_asking(linter_module, tmp_path, monkeypatch):
+    """A file name with terminal escapes could rewrite the consent prompt (security review of #126)."""
+    m = linter_module
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    plugins = tmp_path / "cwd" / ".prism-ai-lint" / "plugins"
+    plugins.mkdir(parents=True)
+    (plugins / "\x1b[1A\x1b[2K\rok.py").write_text(PROBE)
+    _reset(m)
+    trust, asked = _trust(m, tmp_path, interactive=True, answer="y")
+    m._PLUGIN_REGISTRY.load(None, trust)
+    assert not asked and not (plugins / "RAN.marker").exists()
+    assert trust.skipped[0][1] == "unsafe file names"
+
+
+def test_prompt_lists_only_printable_names_and_is_capped(linter_module, tmp_path, monkeypatch):
+    m = linter_module
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    plugins = tmp_path / "cwd" / ".prism-ai-lint" / "plugins"
+    plugins.mkdir(parents=True)
+    for i in range(15):
+        (plugins / f"p{i:02}.py").write_text("def register(api):\n    pass\n")
+    _reset(m)
+    trust, asked = _trust(m, tmp_path, interactive=True, answer="")
+    m._PLUGIN_REGISTRY.load(None, trust)
+    assert "15 plugin(s)" in asked[0] and "p14" not in asked[0] and "current directory" in asked[0]
+
+
+def test_file_added_after_the_prompt_is_not_imported(linter_module, tmp_path, monkeypatch):
+    m = linter_module
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    plugins = tmp_path / "cwd" / ".prism-ai-lint" / "plugins"
+    _probe(plugins)
+    late = plugins / "late.py"
+    late_marker = tmp_path / "late.marker"
+
+    def ask(prompt: str) -> str:
+        late.write_text(f"import pathlib\npathlib.Path({str(late_marker)!r}).write_text('x')\n")
+        return "y"
+
+    _reset(m)
+    trust = m.PluginTrust(tmp_path / "claude", tmp_path / "cwd", True, ask)
+    m._PLUGIN_REGISTRY.load(None, trust)
+    assert (plugins / "RAN.marker").exists() and not late_marker.exists()
+
+
+def test_symlinked_plugin_file_in_current_directory_is_not_imported(linter_module, tmp_path, monkeypatch):
+    m = linter_module
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    outside = tmp_path / "outside"
+    marker = _probe(outside)
+    plugins = tmp_path / "cwd" / ".prism-ai-lint" / "plugins"
+    plugins.mkdir(parents=True)
+    (plugins / "linked.py").symlink_to(outside / "probe.py")
+    _reset(m)
+    trust, _ = _trust(m, tmp_path, interactive=True, answer="y")
+    m._PLUGIN_REGISTRY.load(None, trust)
+    assert not marker.exists() and "linked" not in m._PLUGINS_LOADED
+
+
+def test_config_dir_inside_the_current_directory_is_not_trusted(linter_module, tmp_path, monkeypatch):
+    """CI pointing CLAUDE_CONFIG_DIR / XDG_CONFIG_HOME into the checkout must not trust the checkout's plugins."""
+    m = linter_module
+    cwd = tmp_path / "cwd"
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(cwd / "xdg"))
+    xdg_marker = _probe(cwd / "xdg" / "prism-ai-lint" / "plugins")
+    claude_marker = _probe(cwd / ".claude" / "plugins")
+    _reset(m)
+    trust = m.PluginTrust(cwd / ".claude", cwd, False, None)
+    m._PLUGIN_REGISTRY.load(None, trust)
+    assert not xdg_marker.exists() and not claude_marker.exists()
+    assert {reason for _, reason in trust.skipped} == {"non-interactive run"}
+
+
+def test_relative_xdg_config_home_is_ignored(linter_module, tmp_path, monkeypatch):
+    monkeypatch.setenv("XDG_CONFIG_HOME", "rel/xdg")
+    assert linter_module.PluginTrust.user_dir().is_absolute()
+
+
+def test_deprecated_dir_is_not_loaded_in_ci_or_pre_commit(linter_module, tmp_path, monkeypatch):
+    m = linter_module
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    marker = _probe(tmp_path / "claude" / "plugins")
+    for var in ("CI", "PRE_COMMIT"):
+        monkeypatch.setenv(var, "1")
+        _reset(m)
+        trust, _ = _trust(m, tmp_path, interactive=False)
+        m._PLUGIN_REGISTRY.load(None, trust)
+        assert not marker.exists(), var
+        monkeypatch.delenv(var)
+
+
 def test_new_codes_have_an_action(linter_module, monkeypatch):
     monkeypatch.setattr(linter_module.state, "lang", "en")
     assert linter_module._action_for("PLUGIN_SKIPPED_UNTRUSTED")

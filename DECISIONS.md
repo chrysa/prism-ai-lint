@@ -11,7 +11,10 @@ pre-commit hook or in CI on a pull request executed code that repository supplie
 directory: `--plugin-dir` and `~/.config/prism-ai-lint/plugins` load; the old shared `<Claude config dir>/plugins`
 loads with `PLUGIN_DIR_DEPRECATED`; current-directory plugins load only after an interactive `y` (default no) and
 never when `CI` or `PRE_COMMIT` is set, with `--format json`, `-q`, or without a terminal, where
-`PLUGIN_SKIPPED_UNTRUSTED` reports them. A repository cannot opt itself in. The guard still returns before any
+`PLUGIN_SKIPPED_UNTRUSTED` reports them. A repository cannot opt itself in: a non-explicit directory that resolves
+inside the current directory is treated the same way, symlinked files there are ignored, file names with control
+characters are refused without a prompt (they could rewrite it), only the files shown in the prompt are imported,
+the old shared directory does not load in CI or pre-commit, and a relative `XDG_CONFIG_HOME` is ignored. The guard still returns before any
 plugin loads. Released as a breaking change (CI setups relying on current-directory plugins must pass
 `--plugin-dir`). **Why:** a tool that secures agent configuration must not run the code of the repository it
 inspects; reproduced by `tests/test_plugin_trust.py` before the fix. **Reverse when:** plugins become declarative

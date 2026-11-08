@@ -31,10 +31,16 @@ Plugins are Python code, so a scan never imports them from the scanned repositor
 | -------- | ------ |
 | `--plugin-dir DIR` | yes: explicit trust |
 | `~/.config/prism-ai-lint/plugins/` | yes |
-| `<Claude config dir>/plugins/*.py` (old location) | yes, with a `PLUGIN_DIR_DEPRECATED` warning: move them |
+| `<Claude config dir>/plugins/*.py` (old location) | yes, with a `PLUGIN_DIR_DEPRECATED` warning (not in CI or pre-commit): move them |
 | `./.prism-ai-lint/plugins/`, `./.ai-lint/plugins/` (current directory) | only after you answer `y` to the prompt of an interactive run |
 
 CI (`CI` set), pre-commit (`PRE_COMMIT` set), `--format json`, `-q` and any run without a terminal never
 load current-directory plugins: they report `PLUGIN_SKIPPED_UNTRUSTED` instead. To keep a repo-local plugin
 in such a run, pass its directory explicitly: `prism-ai-lint . --plugin-dir .prism-ai-lint/plugins`.
 `--list-plugins` shows each directory and why it was skipped. Plugins never run in guard mode.
+
+Also treated as current-directory plugins (prompt, never automatic): a user or Claude config directory that
+resolves inside the current directory (for example `CLAUDE_CONFIG_DIR` pointed into a CI checkout). In those
+directories symlinked `*.py` files are ignored, a directory whose file names contain control characters is
+refused without a prompt, and only the files listed in the prompt are imported. A relative `XDG_CONFIG_HOME`
+is ignored, as the XDG specification requires.

@@ -49,9 +49,7 @@ class PluginRegistry:
         trust = trust or self.default_trust()
         self.trust = trust
         for source in trust.sources(extra):
-            if not trust.allowed(source):
-                continue
-            for file in PluginTrust.plugin_files(source.path):
+            for file in trust.approve(source):  # exactly the approved files, never a second glob
                 try:
                     spec = importlib.util.spec_from_file_location(f"ai_lint_plugin_{file.stem}", file)
                     if not spec or not spec.loader:
