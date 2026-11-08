@@ -1,6 +1,6 @@
 ---
 name: plugin-trust-gate
-status: draft
+status: approved
 author: chrysa
 created: 2026-11-08
 ---
@@ -37,9 +37,12 @@ part of the acceptance criteria (audit rule: no bug is claimed before reproducti
 
 ## Functional requirements
 
-- FR1: Repo-local and cwd-relative plugin directories are not loaded by default.
-- FR2: An explicit opt-in loads them: a CLI flag (for example `--trust-plugins <dir>`) or a
-  user-level policy entry listing trusted directories. A repo's own config file cannot opt itself in.
+- FR1: Repo-local and cwd-relative plugin directories are never loaded without consent.
+- FR2 (owner decision 2026-11-08: ask interactively): in an interactive run (TTY, text output),
+  prism-ai-lint lists the plugins found in a repo-local or cwd-relative directory and asks before
+  importing them (default answer: no). CI, pre-commit, JSON output, pipes and every other
+  non-interactive run never load them and report them instead (FR4). `--plugin-dir <dir>` is the
+  explicit, prompt-free opt-in for one directory. A repo's own config file cannot opt itself in.
 - FR3: The user plugin directory moves to a prism-ai-lint-owned path (for example
   `~/.config/prism-ai-lint/plugins`); the old `~/.claude/plugins` top-level `*.py` keep loading for
   one deprecation window, with a warning finding.

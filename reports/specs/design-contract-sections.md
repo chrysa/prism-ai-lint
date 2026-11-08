@@ -1,6 +1,6 @@
 ---
 name: design-contract-sections
-status: draft
+status: approved
 author: chrysa
 created: 2026-11-08
 ---
@@ -43,8 +43,9 @@ twice per run (repo standard: methods, not free functions).
   Svelte, React Native or other mobile, Electron/Tauri/Qt desktop, Godot/Unity/Unreal game UI).
 - FR2: The contract path is configurable in the policy (`[design] path`, default `DESIGN.md`); an
   inherited contract (link to external standards) satisfies presence.
-- FR3: Missing expected sections are reported per section, at `info` by default; the section list
-  lives in the policy and can be narrowed per project.
+- FR3 (owner decision 2026-11-08: opt-in): D-044 stays the default — no section schema is imposed.
+  Section checks run only when the policy sets `[design] sections = [...]`; missing sections are then
+  reported per section at `info`. D-044 is amended (opt-in sections), not reversed.
 - FR4: Three distinct finding codes: contract absent (UI project, no contract), rule not tested
   (contract states a rule that no test or tool config enforces, where an adapter can tell), and
   contradiction observed (contract vs a real file, where an adapter exists, for example declared
