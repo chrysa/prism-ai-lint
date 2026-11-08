@@ -56,3 +56,19 @@ def test_guard_blocks_big_whole_read_only(linter_module, tmp_path):
     assert _run(script, {"tool_input": {"file_path": str(big), "limit": 50}}).returncode == 0
     assert _run(script, {"tool_input": {"file_path": str(tmp_path / "missing")}}).returncode == 0
     assert subprocess.run([sys.executable, "-I", str(script)], input="not json", text=True).returncode == 0
+
+
+def test_generated_python_hooks_write_without_print(linter_module, tmp_path):
+    """Repos that forbid print() in Python (chrysa python-print-detection) must accept the generated hooks."""
+    rep = _gen(linter_module, tmp_path)
+    hooks = [p for p in rep.new_files if p.suffix == ".py" and ".claude" in p.parts]
+    assert hooks
+    for path in hooks:
+        assert "print(" not in rep.new_files[path][0], path
+    # the block message still reaches Claude Code on stderr
+    script = tmp_path / "g.py"
+    script.write_text(linter_module.READ_GUARD_HOOK.replace("__LIMIT_KB__", "16"))
+    big = tmp_path / "big.txt"
+    big.write_text("x" * 40_000)
+    res = _run(script, {"tool_input": {"file_path": str(big)}})
+    assert res.returncode == 2 and "read it with offset and limit" in res.stderr
