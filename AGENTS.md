@@ -176,8 +176,7 @@ CLI wrapper: `prism-ai-lint.py`. Standard library only (PyYAML optional for the 
 - AI orchestration & local-first
 <!-- chrysa:standards-agents:end -->
 
-## Product design contract
+## Output surfaces
 
-Before UI, component, style, navigation or asset work, read [DESIGN.md](DESIGN.md)
-and any product-specific specification it links. Keep the contract and acceptance
-evidence aligned with UI changes. Load it on demand; do not duplicate its tokens here.
+Before changing what Prism prints, asks or emits (report wording, grouping, exit codes, JSON
+fields, the `-i` review), read [DESIGN.md](DESIGN.md) and update it in the same change.

@@ -28,7 +28,9 @@
     "docs",
     "examples",
     "prism_ai_lint",
+    "scripts",
     "skills",
+    "standards",
     "tests"
   ],
   "name": "prism-ai-lint",

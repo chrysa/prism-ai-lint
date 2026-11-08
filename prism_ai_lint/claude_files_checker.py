@@ -8,11 +8,11 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from pathlib import Path
 
 from prism_ai_lint._runtime import read_text
+from prism_ai_lint.design_contract_checker import DesignContractChecker
 from prism_ai_lint.report import Report
 
 INSTRUCTION_FILES = ("CLAUDE.md", "AGENTS.md", ".claude/CLAUDE.md")
@@ -37,6 +37,7 @@ GENERATED_DIRS = {
 }
 PLACEHOLDERS = ("path/to", "your-", "your_", "example", "foo/", "my-", "xxx")
 MAX_LISTED = 5
+DESIGN_CONTRACTS = DesignContractChecker()
 
 SKILL_LISTING_TOKENS = 2000
 AGENT_LISTING_TOKENS = 15000
@@ -88,14 +89,21 @@ def _package_scripts(package: Path) -> set[str] | None:
 
 
 def design_files(repo: Path) -> list[Path]:
-    """Discover optional design contracts without following symlinks or generated trees."""
-    found: list[Path] = []
-    for directory, dirs, files in os.walk(repo, followlinks=False):
-        dirs[:] = sorted(d for d in dirs if not d.startswith(".") and d not in GENERATED_DIRS)
-        path = Path(directory) / "DESIGN.md"
-        if "DESIGN.md" in files and not path.is_symlink():
-            found.append(path)
-    return sorted(found)
+    """Optional design contracts, with the exclusions and symlink handling of the design checker."""
+    return DESIGN_CONTRACTS.discover(repo)
+
+
+def _nearest(repo: Path, doc: Path, name: str) -> Path | None:
+    """The `name` file closest to `doc`, walking up to the repository root: a nested contract's
+    `npm run x` or `make y` refers to its own package, not to the root one."""
+    current = doc.parent
+    while True:
+        candidate = current / name
+        if candidate.is_file():
+            return candidate
+        if current == repo or repo not in current.parents:
+            return None
+        current = current.parent
 
 
 class ClaudeFilesChecker:
@@ -113,16 +121,23 @@ class ClaudeFilesChecker:
             paths += sorted(rules.rglob("*.md"))
         return [p for p in paths if p.is_file()]
 
-    def _dead_references(self, repo: Path, rep: Report) -> None:  # noqa: C901
-        makefile = repo / "Makefile"
-        targets = _make_targets(makefile) if makefile.is_file() else None
-        scripts = _package_scripts(repo / "package.json") if (repo / "package.json").is_file() else None
-        if not scripts:  # no scripts here: the app may live in a workspace or subfolder, so do not judge
-            scripts = None
+    @staticmethod
+    def _commands(repo: Path, doc: Path) -> tuple[set[str] | None, set[str] | None]:
+        """Make targets and package scripts a document's commands resolve against: those of the
+        nearest Makefile / package.json, so a nested document is judged against its own package."""
+        makefile = _nearest(repo, doc, "Makefile")
+        targets = _make_targets(makefile) if makefile else None
+        package = _nearest(repo, doc, "package.json")
+        scripts = _package_scripts(package) if package else None
+        # no scripts here: the app may live in a workspace or subfolder, so do not judge
+        return targets, (scripts or None)
+
+    def _dead_references(self, repo: Path, rep: Report) -> None:
         for path in self._instruction_paths(repo):
             text = read_text(path)
             if not text:
                 continue
+            targets, scripts = self._commands(repo, path)
             fences = [m.group(2) for m in FENCE_RE.finditer(text)]
             prose = FENCE_RE.sub("", text)
             inline = [m.group(1) for m in INLINE_RE.finditer(prose)]
