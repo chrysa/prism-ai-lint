@@ -4,6 +4,19 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-046 · Plugins from the scanned directory load only after consent
+A scan imported every top-level `*.py` of `./.prism-ai-lint/plugins` and `./.ai-lint/plugins` (current directory)
+and of `<Claude config dir>/plugins` with no consent, so running prism-ai-lint inside a cloned repository, as a
+pre-commit hook or in CI on a pull request executed code that repository supplied. `PluginTrust` now decides per
+directory: `--plugin-dir` and `~/.config/prism-ai-lint/plugins` load; the old shared `<Claude config dir>/plugins`
+loads with `PLUGIN_DIR_DEPRECATED`; current-directory plugins load only after an interactive `y` (default no) and
+never when `CI` or `PRE_COMMIT` is set, with `--format json`, `-q`, or without a terminal, where
+`PLUGIN_SKIPPED_UNTRUSTED` reports them. A repository cannot opt itself in. The guard still returns before any
+plugin loads. Released as a breaking change (CI setups relying on current-directory plugins must pass
+`--plugin-dir`). **Why:** a tool that secures agent configuration must not run the code of the repository it
+inspects; reproduced by `tests/test_plugin_trust.py` before the fix. **Reverse when:** plugins become declarative
+(non-executable) rules, so loading them can no longer run code.
+
 ## D-045 · Generated allow rules cover only local, read-only or self-contained commands
 `--generate` keeps writing a stack-specific `allow` baseline, but only for commands with no effect outside the working
 tree that cannot rewrite history: read-only git, the safe Makefile targets, the language test/lint/format/typecheck

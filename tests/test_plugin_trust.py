@@ -1,0 +1,163 @@
+"""Plugin trust (D-046): a scan imports plugin code only from trusted locations.
+
+`--plugin-dir` and the prism-ai-lint user directory load; the old Claude Code config directory loads
+with a deprecation finding; plugins under the current directory load only after an interactive "yes",
+never in CI, pre-commit or a non-text run. The guard never imports any plugin.
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+PROBE = (
+    "import pathlib\n"
+    "pathlib.Path(__file__).with_name('RAN.marker').write_text('imported')\n"
+    "def register(api):\n"
+    "    pass\n"
+)
+
+
+def _probe(directory: Path) -> Path:
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "probe.py").write_text(PROBE)
+    return directory / "RAN.marker"
+
+
+def _cli(
+    cwd: Path, home: Path, *args: str, env_extra: dict | None = None, stdin: str = ""
+) -> subprocess.CompletedProcess:
+    env = {
+        "PATH": "/usr/bin:/bin",
+        "HOME": str(home),
+        "CLAUDE_CONFIG_DIR": str(home / ".claude"),
+        "CODEX_HOME": str(home / ".codex"),
+        "XDG_CONFIG_HOME": str(home / ".config"),
+        **(env_extra or {}),
+    }
+    cmd = [sys.executable, str(ROOT / "prism-ai-lint.py"), *args, "--no-update-check", "--no-history", "--no-cli"]
+    return subprocess.run(cmd, cwd=cwd, env=env, input=stdin, capture_output=True, text=True, timeout=300)
+
+
+def _repo(tmp_path: Path) -> Path:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    return repo
+
+
+def test_cwd_plugin_is_not_imported_by_a_non_interactive_scan(tmp_path):
+    repo = _repo(tmp_path)
+    marker = _probe(repo / ".prism-ai-lint" / "plugins")
+    res = _cli(repo, tmp_path / "home", ".", "--format", "json")
+    assert not marker.exists(), "a repo-local plugin ran without consent"
+    assert "PLUGIN_SKIPPED_UNTRUSTED" in res.stdout
+
+
+def test_legacy_cwd_plugin_dir_is_not_imported_either(tmp_path):
+    repo = _repo(tmp_path)
+    marker = _probe(repo / ".ai-lint" / "plugins")
+    _cli(repo, tmp_path / "home", ".", "-q")
+    assert not marker.exists()
+
+
+def test_pre_commit_and_ci_never_load_even_when_interactive(linter_module, tmp_path, monkeypatch):
+    m = linter_module
+    for var in ("PRE_COMMIT", "CI"):
+        monkeypatch.setenv(var, "1")
+        assert not m.PluginTrust.is_interactive("text", quiet=False, tty=True)
+        monkeypatch.delenv(var)
+    assert m.PluginTrust.is_interactive("text", quiet=False, tty=True)
+    assert not m.PluginTrust.is_interactive("json", quiet=False, tty=True)
+    assert not m.PluginTrust.is_interactive("text", quiet=True, tty=True)
+    assert not m.PluginTrust.is_interactive("text", quiet=False, tty=False)
+
+
+def _trust(m, tmp_path, interactive, answer=""):
+    asked: list[str] = []
+
+    def ask(prompt: str) -> str:
+        asked.append(prompt)
+        return answer
+
+    trust = m.PluginTrust(tmp_path / "claude", tmp_path / "cwd", interactive, ask)
+    return trust, asked
+
+
+def _reset(m):
+    m._PLUGIN_CHECKS.clear()
+    m._PLUGINS_LOADED.clear()
+
+
+def test_interactive_yes_loads_and_default_no_skips(linter_module, tmp_path, monkeypatch):
+    m = linter_module
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    marker = _probe(tmp_path / "cwd" / ".prism-ai-lint" / "plugins")
+    _reset(m)
+    trust, asked = _trust(m, tmp_path, interactive=True, answer="")
+    m._PLUGIN_REGISTRY.load(None, trust)
+    assert asked and "probe" in asked[0] and not marker.exists()
+    assert trust.skipped and trust.skipped[0][1] == "declined"
+    _reset(m)
+    trust, _ = _trust(m, tmp_path, interactive=True, answer="y")
+    m._PLUGIN_REGISTRY.load(None, trust)
+    assert marker.exists() and "probe" in m._PLUGINS_LOADED
+
+
+def test_non_interactive_never_asks(linter_module, tmp_path, monkeypatch):
+    m = linter_module
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    marker = _probe(tmp_path / "cwd" / ".prism-ai-lint" / "plugins")
+    _reset(m)
+    trust, asked = _trust(m, tmp_path, interactive=False, answer="y")
+    m._PLUGIN_REGISTRY.load(None, trust)
+    assert not asked and not marker.exists()
+    assert trust.skipped[0][1] == "non-interactive run"
+
+
+def test_plugin_dir_flag_is_an_explicit_opt_in(linter_module, tmp_path, monkeypatch):
+    m = linter_module
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    plugins = tmp_path / "cwd" / ".prism-ai-lint" / "plugins"
+    marker = _probe(plugins)
+    _reset(m)
+    trust, asked = _trust(m, tmp_path, interactive=False)
+    m._PLUGIN_REGISTRY.load([plugins], trust)
+    assert marker.exists() and not asked and not trust.skipped
+
+
+def test_user_dir_loads_and_old_dir_loads_with_deprecation(linter_module, tmp_path, monkeypatch):
+    m = linter_module
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
+    new_marker = _probe(tmp_path / "xdg" / "prism-ai-lint" / "plugins")
+    old_marker = _probe(tmp_path / "claude" / "plugins")
+    _reset(m)
+    trust, _ = _trust(m, tmp_path, interactive=False)
+    m._PLUGIN_REGISTRY.load(None, trust)
+    assert new_marker.exists() and old_marker.exists()
+    rep = m.Report()
+    trust.report(rep)
+    assert [f.code for f in rep.findings] == ["PLUGIN_DIR_DEPRECATED"]
+
+
+def test_guard_never_imports_plugins(tmp_path):
+    repo = _repo(tmp_path)
+    marker = _probe(repo / ".prism-ai-lint" / "plugins")
+    payload = '{"tool_name": "Read", "tool_input": {"file_path": "README.md"}}'
+    _cli(repo, tmp_path / "home", "--guard", stdin=payload)
+    assert not marker.exists()
+
+
+def test_list_plugins_shows_the_skip_reason(tmp_path):
+    repo = _repo(tmp_path)
+    _probe(repo / ".prism-ai-lint" / "plugins")
+    res = _cli(repo, tmp_path / "home", "--list-plugins")
+    assert "skipped" in res.stdout and "non-interactive run" in res.stdout
+
+
+def test_new_codes_have_an_action(linter_module, monkeypatch):
+    monkeypatch.setattr(linter_module.state, "lang", "en")
+    assert linter_module._action_for("PLUGIN_SKIPPED_UNTRUSTED")
+    assert linter_module._action_for("PLUGIN_DIR_DEPRECATED")

@@ -1,6 +1,7 @@
 # Custom checks
 
-Add a `.py` file to `<repo>/.prism-ai-lint/plugins/`, `<config dir>/plugins/` or any `--plugin-dir`:
+Add a `.py` file to `~/.config/prism-ai-lint/plugins/` (`$XDG_CONFIG_HOME` honoured) or to any directory you pass
+with `--plugin-dir DIR`:
 
 ```python
 def register(api):
@@ -22,4 +23,18 @@ def register(api):
 appear in the normal report and obey the catalogue. A plugin that raises is reported and
 skipped; it never crashes a run. `prism-ai-lint --list-plugins` shows what loaded.
 
-Plugins are code: only load plugins you trust. They never run in guard mode.
+## Where plugins load from (D-046)
+
+Plugins are Python code, so a scan never imports them from the scanned repository without consent:
+
+| Location | Loaded |
+| -------- | ------ |
+| `--plugin-dir DIR` | yes: explicit trust |
+| `~/.config/prism-ai-lint/plugins/` | yes |
+| `<Claude config dir>/plugins/*.py` (old location) | yes, with a `PLUGIN_DIR_DEPRECATED` warning: move them |
+| `./.prism-ai-lint/plugins/`, `./.ai-lint/plugins/` (current directory) | only after you answer `y` to the prompt of an interactive run |
+
+CI (`CI` set), pre-commit (`PRE_COMMIT` set), `--format json`, `-q` and any run without a terminal never
+load current-directory plugins: they report `PLUGIN_SKIPPED_UNTRUSTED` instead. To keep a repo-local plugin
+in such a run, pass its directory explicitly: `prism-ai-lint . --plugin-dir .prism-ai-lint/plugins`.
+`--list-plugins` shows each directory and why it was skipped. Plugins never run in guard mode.

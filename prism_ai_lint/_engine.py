@@ -169,6 +169,7 @@ from prism_ai_lint.other_tools_checker import OtherToolsChecker
 from prism_ai_lint.pdf_checker import PdfChecker
 from prism_ai_lint.permission_rules_checker import PermissionRulesChecker
 from prism_ai_lint.plugin_registry import PluginRegistry
+from prism_ai_lint.plugin_trust import PluginTrust
 from prism_ai_lint.portfolio_checker import PortfolioChecker
 from prism_ai_lint.project_profile import ProjectProfiler
 from prism_ai_lint.report import Report, configure_report_context
@@ -1839,6 +1840,16 @@ HINTS.update(
         "PLUGIN_SOURCE_UNPINNED": (
             "A marketplace fetched from a moving branch can change what runs in the session; pin a tag or a commit.",
             DOCS + "plugin-marketplaces",
+        ),
+        "PLUGIN_SKIPPED_UNTRUSTED": (
+            "Check plugins under the scanned directory run as Python code; they load only after an interactive "
+            "yes, or with --plugin-dir for a directory you trust (never in CI or pre-commit).",
+            "",
+        ),
+        "PLUGIN_DIR_DEPRECATED": (
+            "The Claude Code config directory is shared with Claude Code itself; keep prism-ai-lint check plugins "
+            "in ~/.config/prism-ai-lint/plugins.",
+            "",
         ),
         "GEMINI_AUTO_APPROVE": (
             "Auto-approving tool calls removes the confirmation step; keep it to disposable environments.",
@@ -5137,6 +5148,16 @@ BRIEF_FR = {
         "y ajouter les 2 lignes sed (voir --details)",
     ),
     "PLUGIN_MANIFEST": ("broken", "manifeste de plugin à corriger", "voir --details"),
+    "PLUGIN_SKIPPED_UNTRUSTED": (
+        "security",
+        "plugins du dossier scanné non chargés",
+        "relancer en interactif et accepter, ou passer --plugin-dir pour un dossier de confiance",
+    ),
+    "PLUGIN_DIR_DEPRECATED": (
+        "other",
+        "plugins dans le dossier partagé de Claude Code",
+        "les déplacer dans ~/.config/prism-ai-lint/plugins",
+    ),
     "HOOK_IF_DEAD": ("broken", "condition de hook jamais évaluée", "--fix la retire"),
     "RTK_NO_HOOK": ("broken", "rtk installé mais pas branché", "--fix --user l'ajoute"),
     "RTK_MISSING": (
@@ -5331,6 +5352,16 @@ BRIEF_EN = {
         "add the 2 sed lines (see --details)",
     ),
     "PLUGIN_MANIFEST": ("broken", "plugin manifest to fix", "see --details"),
+    "PLUGIN_SKIPPED_UNTRUSTED": (
+        "security",
+        "plugins of the scanned directory not loaded",
+        "rerun interactively and accept, or pass --plugin-dir for a directory you trust",
+    ),
+    "PLUGIN_DIR_DEPRECATED": (
+        "other",
+        "plugins in the shared Claude Code directory",
+        "move them to ~/.config/prism-ai-lint/plugins",
+    ),
     "HOOK_IF_DEAD": ("broken", "hook condition never evaluated", "--fix removes it"),
     "RTK_NO_HOOK": ("broken", "rtk installed but not wired in", "--fix --user adds it"),
     "RTK_MISSING": (
@@ -6411,6 +6442,7 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
     log(1, f"{phase}: starting across {len(repos)} repositories")
     rep = Report()
     user_text = lint_user(policy, rep, repos) if (args.user or args.user_only) else None
+    _PLUGIN_REGISTRY.report_trust(rep)
     if args.user or args.user_only:
         run_plugin_checks("user", config_dir(), policy, rep)
         _APE_HOOK.check_user(config_dir(), rep)
@@ -7093,7 +7125,9 @@ def session_settings(policy: dict) -> dict:
 # `api.check(name, scope=...)` as a decorator on a function `fn(ctx)`; the
 # function inspects `ctx.repo` / `ctx.path(...)` and reports via `ctx.add(...)`.
 # Findings flow into the same report and honour the catalog (severity/enable).
-# Discovery: <config dir>/plugins, <repo>/.prism-ai-lint/plugins, and --plugin-dir.
+# Discovery and trust (D-046, PluginTrust): --plugin-dir and ~/.config/prism-ai-lint/plugins load;
+# <config dir>/plugins loads with a deprecation finding; ./.prism-ai-lint/plugins and ./.ai-lint/plugins
+# (current directory) load only after an interactive yes, never in CI, pre-commit or a non-text run.
 # --------------------------------------------------------------------------- #
 
 _PLUGIN_REGISTRY = PluginRegistry(
@@ -7108,13 +7142,21 @@ _PLUGINS_LOADED = _PLUGIN_REGISTRY.loaded  # names of loaded plugins, for --list
 
 
 def plugin_dirs(extra: list[Path] | None = None) -> list[Path]:
-    return _PLUGIN_REGISTRY.plugin_dirs(extra)
+    return _PLUGIN_REGISTRY.plugin_dirs(extra, _PLUGIN_REGISTRY.trust)
 
 
-def load_plugins(extra: list[Path] | None = None) -> None:
-    """Import every *.py in the plugin dirs and call its register(api). Failures
+def _ask_on_stderr(prompt: str) -> str:
+    """Prompt on stderr so stdout stays clean for the report."""
+    sys.stderr.write(prompt)
+    sys.stderr.flush()
+    return sys.stdin.readline()
+
+
+def load_plugins(extra: list[Path] | None = None, interactive: bool = False) -> None:
+    """Import the *.py of every trusted plugin dir and call its register(api) (D-046). Failures
     are isolated: a broken plugin is reported and skipped, never fatal."""
-    _PLUGIN_REGISTRY.load(extra)
+    trust = PluginTrust(config_dir(), Path.cwd(), interactive, _ask_on_stderr if interactive else None)
+    _PLUGIN_REGISTRY.load(extra, trust)
 
 
 def run_plugin_checks(scope: str, root: Path, policy: dict, rep: Report) -> None:
@@ -7566,8 +7608,8 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0911, PLR0912,
         type=Path,
         action="append",
         metavar="DIR",
-        help="extra directory of check plugins (repeatable); also loaded from "
-        "<config dir>/plugins and <repo>/.prism-ai-lint/plugins",
+        help="trusted directory of check plugins (repeatable). Also loaded: ~/.config/prism-ai-lint/plugins; "
+        "./.prism-ai-lint/plugins only after an interactive yes (never in CI or pre-commit)",
     )
     ap.add_argument("--list-plugins", action="store_true", help="list discovered check plugins and exit")
     # No arguments at all: show help (with defaults) instead of silently scanning cwd.
@@ -7660,10 +7702,15 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0911, PLR0912,
         return 0
     if args.catalog:
         load_catalog(args.catalog)
-    load_plugins(args.plugin_dir)
+    load_plugins(args.plugin_dir, PluginTrust.is_interactive(args.format, args.quiet) and not args.list_plugins)
     if args.list_plugins:
+        trust = _PLUGIN_REGISTRY.trust
         dirs = ", ".join(str(d) for d in plugin_dirs(args.plugin_dir)) or "(none)"
         print(f"plugin dirs: {dirs}")
+        for path, reason in trust.skipped if trust else []:
+            print(f"  skipped ({reason}): {path}  (pass --plugin-dir to trust it)")
+        for path in trust.deprecated if trust else []:
+            print(f"  deprecated location: {path}  (move to {PluginTrust.user_dir()})")
         print(f"loaded plugins ({len(_PLUGINS_LOADED)}): " + (", ".join(_PLUGINS_LOADED) or "(none)"))
         print(f"registered checks: {len(_PLUGIN_CHECKS)}")
         for code, scope, _ in _PLUGIN_CHECKS:
