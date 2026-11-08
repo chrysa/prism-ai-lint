@@ -130,6 +130,8 @@ def test_plugin_dir_flag_is_an_explicit_opt_in(linter_module, tmp_path, monkeypa
 
 def test_user_dir_loads_and_old_dir_loads_with_deprecation(linter_module, tmp_path, monkeypatch):
     m = linter_module
+    for var in ("CI", "PRE_COMMIT"):  # the old directory is skipped in CI and pre-commit (tested below)
+        monkeypatch.delenv(var, raising=False)
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "xdg"))
     new_marker = _probe(tmp_path / "xdg" / "prism-ai-lint" / "plugins")
     old_marker = _probe(tmp_path / "claude" / "plugins")
