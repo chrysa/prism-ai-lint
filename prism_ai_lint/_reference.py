@@ -595,13 +595,31 @@ LEGACY_MODELS = {
 MODEL_SNAPSHOT = "2026-10"
 
 
+# claude-<family>-<major>[-<minor>] (current naming) and claude-<n>-... / claude-instant-... (pre-2025 naming).
+_FAMILY_ID = re.compile(r"^claude-(haiku|sonnet|opus|fable)-(\d+)(?:-(\d+))?$")
+_OLD_NAMING = re.compile(r"^claude-(?:instant-)?\d")
+
+
+def _generation(base: str) -> tuple[str, tuple[int, int]] | None:
+    m = _FAMILY_ID.match(base)
+    return (m.group(1), (int(m.group(2)), int(m.group(3) or 0))) if m else None
+
+
 def model_status(name: str) -> str:
-    """'current', 'legacy' or '' (an alias such as 'sonnet', or an id this snapshot does not know)."""
+    """'current', 'legacy' or '' (an alias such as 'sonnet', or an id newer than this snapshot).
+
+    An id is legacy when the snapshot lists it, uses the pre-2025 naming, or is an older version of a family whose
+    current id is known (claude-sonnet-4-5 < claude-sonnet-5-5). A newer version is not judged (D-047).
+    """
     base = re.sub(r"(\[1m\])?$", "", name.strip().lower())
     base = re.sub(r"-\d{8}$", "", base)
     if base in CURRENT_MODELS:
         return "current"
-    return "legacy" if base in LEGACY_MODELS else ""
+    if base in LEGACY_MODELS or _OLD_NAMING.match(base):
+        return "legacy"
+    gen = _generation(base)
+    current = {g[0]: g[1] for c in CURRENT_MODELS if (g := _generation(c))}
+    return "legacy" if gen and gen[0] in current and gen[1] < current[gen[0]] else ""
 
 
 # defaultMode values (permission-modes docs, 2026-10); anything else is a typo.

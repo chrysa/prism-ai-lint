@@ -20,6 +20,7 @@ potential savings of acting on them.
 | No MCP server when the CLI is installed (`gh`, `aws`...); server count capped | lint (`MCP_PREFER_CLI`) |
 | Generated and vendored directories denied to `Read` (`node_modules`, `.venv`, `dist`...) | `--generate` |
 | Mechanical subagents on a light model; heavy model not the session default | lint (`TOKEN_MODEL`, `TOKEN_SUBAGENT_MODEL`) |
+| Security and review subagents never on Haiku (pinned or inherited); no legacy model id in agents or skills | lint (`SUBAGENT_MODEL_UNDERSIZED`, `MODEL_LEGACY`); `--generate` pins `model: sonnet` on code-reviewer, security-auditor, infra-reviewer |
 | Instructions duplicated between user and project scope | lint (`INSTR_DUPLICATED`) |
 | Output compression with rtk (Bash) and llmtrim when the context is heavy | lint (`LLMTRIM_SUGGESTED`), rtk routing |
 

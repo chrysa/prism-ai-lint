@@ -177,6 +177,7 @@ from prism_ai_lint.restore_log import RestoreLog as RestoreLog
 from prism_ai_lint.secret_scan import InlineSecretScanner
 from prism_ai_lint.self_update import SelfUpdater
 from prism_ai_lint.skill_agent_checker import SkillAgentChecker
+from prism_ai_lint.subagent_model_checker import SubagentModelChecker
 from prism_ai_lint.surfaces_checker import SurfacesChecker
 from prism_ai_lint.terminal_view import Tty
 from prism_ai_lint.tui_app import TuiApp
@@ -3737,6 +3738,10 @@ GENERATED_DENY_READS.extend(
     ]
 )
 AGENT_TEMPLATES["test-runner"] = AGENT_TEMPLATES["test-runner"] + ("haiku",)
+# Judgment agents pin sonnet: a generated project defaults its session to haiku (D-030), and a review or security
+# audit must not inherit the smallest model (D-047).
+for _judge in ("code-reviewer", "security-auditor", "infra-reviewer"):
+    AGENT_TEMPLATES[_judge] = AGENT_TEMPLATES[_judge] + ("sonnet",)
 GUIDELINES_SECTION = """
 ## Working style
 
@@ -3784,6 +3789,11 @@ HINTS.update(
         "INSTR_GENERATED_LOADED": (
             "A generated file is rebuilt by a script and is usually a registry or a dump; loading it whole in every session costs tokens for text nobody edits.",
             DOCS + "memory#my-claude-md-is-too-large",
+        ),
+        "SUBAGENT_MODEL_UNDERSIZED": (
+            "Security audits and code reviews are judgment work: on the smallest model they miss findings. A subagent "
+            "without 'model' inherits the session default, which generated projects set to haiku (D-030).",
+            DOCS + "sub-agents",
         ),
         "MODEL_LEGACY": (
             "Older model ids stay available, but the current generation is the recommended one.",
@@ -4095,7 +4105,8 @@ def _can_write(meta: dict[str, str]) -> bool:
     return bool(listed & WRITE_TOOLS)
 
 
-MECHANICAL_RE = re.compile(r"\b(test|lint|log|triage|format)")
+MECHANICAL_RE = SubagentModelChecker.MECHANICAL  # kept for plugins; judgment words exclude a match (D-047)
+_SUBAGENT_MODELS = SubagentModelChecker()
 
 
 def mechanical_agents(claude_dir: Path) -> list[tuple[Path, dict[str, str]]]:
@@ -4104,8 +4115,9 @@ def mechanical_agents(claude_dir: Path) -> list[tuple[Path, dict[str, str]]]:
     found = []
     for sub in sorted(agents.glob("*.md")) if agents.is_dir() else []:
         meta = frontmatter_of(sub)
-        text = f"{sub.stem} {(meta or {}).get('description', '')}".lower()
-        if MECHANICAL_RE.search(text) and not (meta or {}).get("model"):
+        if SubagentModelChecker.is_mechanical(sub.stem, (meta or {}).get("description", "")) and not (meta or {}).get(
+            "model"
+        ):
             found.append((sub, meta))
     return found
 
@@ -4195,6 +4207,10 @@ def check_token_levers(repo: Path, policy: dict, rep: Report, stack: dict | None
                 f"current: {', '.join(sorted(CURRENT_MODELS))}",
             )
     check_effort_levels(repo, policy, rep)
+    session = SubagentModelChecker.session_model(
+        [repo / ".claude" / "settings.local.json", repo / ".claude" / "settings.json", config_dir() / "settings.json"]
+    )
+    _SUBAGENT_MODELS.check_dir(repo / ".claude", session, rep)
     stack = stack or detect_stack(repo)
     typed = stack["python"] or bool(stack["pm"])
     enabled = []
@@ -5148,6 +5164,11 @@ BRIEF_FR = {
         "y ajouter les 2 lignes sed (voir --details)",
     ),
     "PLUGIN_MANIFEST": ("broken", "manifeste de plugin à corriger", "voir --details"),
+    "SUBAGENT_MODEL_UNDERSIZED": (
+        "security",
+        "agent de revue ou de sécurité sur Haiku",
+        "ajouter 'model: sonnet' dans son frontmatter",
+    ),
     "PLUGIN_SKIPPED_UNTRUSTED": (
         "security",
         "plugins du dossier scanné non chargés",
@@ -5352,6 +5373,11 @@ BRIEF_EN = {
         "add the 2 sed lines (see --details)",
     ),
     "PLUGIN_MANIFEST": ("broken", "plugin manifest to fix", "see --details"),
+    "SUBAGENT_MODEL_UNDERSIZED": (
+        "security",
+        "review or security subagent on Haiku",
+        "add 'model: sonnet' to its frontmatter",
+    ),
     "PLUGIN_SKIPPED_UNTRUSTED": (
         "security",
         "plugins of the scanned directory not loaded",
@@ -6445,6 +6471,9 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
     _PLUGIN_REGISTRY.report_trust(rep)
     if args.user or args.user_only:
         run_plugin_checks("user", config_dir(), policy, rep)
+        _SUBAGENT_MODELS.check_dir(
+            config_dir(), SubagentModelChecker.session_model([config_dir() / "settings.json"]), rep
+        )
         _APE_HOOK.check_user(config_dir(), rep)
     check_rtk(policy, rep, repos, bool(args.user or args.user_only))
     check_llmtrim(rep, repos, bool(args.user or args.user_only))
