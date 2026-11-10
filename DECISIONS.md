@@ -4,6 +4,20 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-047 · Model per task: judgment subagents off Haiku, mechanical ones on it
+Generated `code-reviewer`, `security-auditor` and `infra-reviewer` now pin `model: sonnet`; `test-runner` keeps
+`haiku`. `SUBAGENT_MODEL_UNDERSIZED` (warn) reports a security or review subagent (`review`, `audit`, `secur`,
+`threat`, `pentest`, `vulnerab`) that runs on Haiku, pinned or inherited from the session default (project
+`settings.local.json`, then `settings.json`, then the user settings). `TOKEN_SUBAGENT_MODEL` no longer calls a
+subagent mechanical when a judgment word (review, audit, security, debug, architecture, design, quality, QA,
+decision) appears, so it stops proposing Haiku for QA or debugging agents. `MODEL_LEGACY` judges ids by generation
+(the pre-2025 `claude-3-*` naming, or an older version of a family whose current id is known, such as
+`claude-sonnet-4-5`) and also covers `model:` in agent and skill frontmatter; a newer id than the snapshot is not
+judged. **Why:** D-030 sets generated sessions to haiku, so 212 review and audit subagents in 88 fleet repositories
+inherited the smallest model (2026-11-09 analysis); the legacy list missed `claude-sonnet-4-5` pinned in two skills.
+D-030 stays: the session default remains the cheapest, only judgment subagents are raised. **Reverse when:** the
+cheapest model is good enough for security review, or Claude Code gains per-task model routing.
+
 ## D-046 · Plugins from the scanned directory load only after consent
 A scan imported every top-level `*.py` of `./.prism-ai-lint/plugins` and `./.ai-lint/plugins` (current directory)
 and of `<Claude config dir>/plugins` with no consent, so running prism-ai-lint inside a cloned repository, as a
