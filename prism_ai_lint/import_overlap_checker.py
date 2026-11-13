@@ -37,9 +37,10 @@ class ImportOverlapChecker:
             try:
                 resolved = target.resolve()
                 resolved.relative_to(root.resolve())
+                is_file = resolved.is_file()  # Python 3.13 raises on a name too long, 3.14 returns False
             except (OSError, ValueError):
-                continue  # outside the project: not this check's business (IMPORT_EXTERNAL covers it)
-            if resolved in seen or not resolved.is_file():
+                continue  # outside the project (IMPORT_EXTERNAL covers it) or unstatable (IMPORT_MISSING covers it)
+            if resolved in seen or not is_file:
                 continue
             seen.add(resolved)
             text = read_text(resolved) or ""
