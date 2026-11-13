@@ -13,6 +13,23 @@ only, offline, stdlib. Only counts, sizes, names, read paths and 60-character ho
 TOKENS block estimates what is always loaded; it cannot see what hooks inject per call or what tools return.
 Measuring ranks the levers (audit V1 §8: separate estimates from measurements). **Reverse when:** Claude Code
 exposes the same breakdown itself, or its transcript format stops carrying usage per response.
+## D-049 · Context injected on every call is reported; a hook in two scopes is a duplicate
+`HOOK_CONTEXT_REPEATED` (info) reports a command hook on PreToolUse, PostToolUse, PostToolUseFailure or
+UserPromptSubmit that injects text: an inline `additionalContext` (with its size in tokens), an `echo`/`printf` on
+UserPromptSubmit (stdout becomes context), or a script whose source emits `additionalContext`. `HOOK_DUPLICATE_SCOPE`
+(warn) reports the same event, matcher and command in user and project settings: all scopes run, so it runs twice.
+Both are read only. **Why:** injected text stays in the conversation and is re-read on every later turn; one long
+session (2026-11-13) carried ~975 copies of a graphify hint declared in both scopes, ~200 prompt reminders and ~135
+pytest hints. **Reverse when:** Claude Code deduplicates injected context or hooks across scopes.
+## D-048 · Lines repeated from an imported file are reported with their token cost
+`INSTR_IMPORT_OVERLAP` (warn) reports an always-loaded instruction file (`CLAUDE.md`, `.claude/CLAUDE.md`,
+`CLAUDE.local.md`) that repeats at least five significant lines (`min_duplicate_line_len`) of a file it `@imports`,
+directly or transitively, inside the project. Lines in code blocks and HTML comments do not count; the message gives
+the repeated lines and an estimate (bytes / 4) of the tokens loaded twice. Report only: which copy to keep depends
+on who generates it. **Why:** imports load at launch with the importer, so both copies are paid every session. In
+this repository and the fleet synced from shared-standards, the generated standards block sits in both `CLAUDE.md`
+and the imported `AGENTS.md` (~1,550 tokens per session here, 2026-11-13 measurement). **Reverse when:** Claude
+Code deduplicates imported content.
 
 ## D-047 · Model per task: judgment subagents off Haiku, mechanical ones on it
 Generated `code-reviewer`, `security-auditor` and `infra-reviewer` now pin `model: sonnet`; `test-runner` keeps

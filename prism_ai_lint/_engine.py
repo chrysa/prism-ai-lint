@@ -160,6 +160,8 @@ from prism_ai_lint.guard_checker import CONFIG_HINT as CONFIG_HINT
 from prism_ai_lint.guard_checker import GUARD_MARKER as GUARD_MARKER
 from prism_ai_lint.guard_checker import GuardChecker
 from prism_ai_lint.hook_checker import HookChecker
+from prism_ai_lint.hook_context_checker import HookContextChecker
+from prism_ai_lint.import_overlap_checker import ImportOverlapChecker
 from prism_ai_lint.instruction_checker import InstructionChecker
 from prism_ai_lint.issue_reporter import Anonymizer, IssueReporter, local_identity
 from prism_ai_lint.llmtrim_checker import LlmtrimChecker
@@ -694,6 +696,16 @@ HINTS: dict[str, tuple[str, str]] = {  # code -> (why/how, reference)
         "mcp_tool hooks are skipped at launch on SessionStart and always on Setup.",
         DOCS + "hooks#mcp-tool-hook-fields",
     ),
+    "HOOK_CONTEXT_REPEATED": (
+        "Text a hook adds on PreToolUse, PostToolUse or UserPromptSubmit is injected on every matching call and stays "
+        "in the conversation, re-read on every later turn. Inject it once (SessionStart), or only when it applies.",
+        DOCS + "hooks",
+    ),
+    "HOOK_DUPLICATE_SCOPE": (
+        "Hooks from user and project settings all run: the same handler in both runs twice (and injects twice). "
+        "Keep it in one scope.",
+        DOCS + "hooks",
+    ),
     "HOOK_DUP_CONTEXT": (
         "AGENTS.md is read natively since v2.1.277; printing it from a hook adds a second copy.",
         DOCS + "memory#remove-an-earlier-agents-md-workaround",
@@ -744,6 +756,11 @@ HINTS: dict[str, tuple[str, str]] = {  # code -> (why/how, reference)
         DOCS + "memory#write-effective-instructions",
     ),
     "INSTR_DUPLICATED": ("Same lines in user and project instructions are paid twice.", ""),
+    "INSTR_IMPORT_OVERLAP": (
+        "An imported file loads at launch with the file that imports it: lines present in both are paid twice "
+        "every session. Keep them in the imported file (or fix the generator that writes both).",
+        DOCS + "memory",
+    ),
     "INSTR_PROSE": (
         "An agent parses a bulleted rule faster than a paragraph, and bullets cost fewer tokens.",
         DOCS + "memory#write-effective-instructions",
@@ -1666,6 +1683,8 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
 
 
 _INSTRUCTIONS = InstructionChecker()
+_HOOK_CONTEXT = HookContextChecker()
+_IMPORT_OVERLAP = ImportOverlapChecker()
 _SKILLS = SkillAgentChecker(_INSTRUCTIONS)
 
 
@@ -6410,6 +6429,8 @@ def lint_repo(repo: Path, policy: dict, rep: Report, history: bool, user_text: s
     DESIGN_CONTRACTS.check_repo(repo, policy, rep, _INSTRUCTIONS)
     _INSTRUCTIONS.check_agents_md(repo, policy, rep)
     _INSTRUCTIONS.check_rendered(repo, policy, rep)
+    _HOOK_CONTEXT.check_repo(repo, config_dir() / "settings.json", rep)
+    _IMPORT_OVERLAP.check_repo(repo, policy, rep)
     if user_text and texts:
         min_len = policy["instructions"]["min_duplicate_line_len"]
         norm = lambda t: {l.strip().lower() for l in strip_code(t).splitlines() if len(l.strip()) >= min_len}
@@ -6473,6 +6494,7 @@ def run_lint(repos: list[Path], policy: dict, args: argparse.Namespace, history:
     _PLUGIN_REGISTRY.report_trust(rep)
     if args.user or args.user_only:
         run_plugin_checks("user", config_dir(), policy, rep)
+        _HOOK_CONTEXT.check_user(config_dir() / "settings.json", rep)
         _SUBAGENT_MODELS.check_dir(
             config_dir(), SubagentModelChecker.session_model([config_dir() / "settings.json"]), rep
         )
