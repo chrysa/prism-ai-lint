@@ -71,6 +71,7 @@ section banners:
 | `prism_ai_lint/guard_checker.py` | `GuardChecker` extracts guard logic from engine: PreToolUse checks for loosening config, removed deny rules, attribution, critical content. |
 | `prism_ai_lint/tui_app.py` | `TuiApp` (interactive terminal review) and `TuiServices` provide structured feedback, section selection, critical-diff approval, conversion flows and readiness signals. |
 | `prism_ai_lint/plugin_registry.py` | `CheckContext`, `PluginAPI`, `PluginRegistry` for user-defined checks via plugins. |
+| `prism_ai_lint/usage_analyzer.py`, `usage_totals.py`, `usage_report.py` | `--usage`: measured token use from local session transcripts (D-050). |
 | `prism_ai_lint/plugin_trust.py` | `PluginTrust`: which plugin directories a run may import code from (D-046). |
 | `prism_ai_lint/subagent_model_checker.py` | `SubagentModelChecker`: model per task for subagents and skills (D-047). |
 | `prism_ai_lint/finding.py`, `report.py`, `feedback_renderer.py` | Core finding/report model + rendering layer. |

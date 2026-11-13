@@ -182,6 +182,8 @@ from prism_ai_lint.surfaces_checker import SurfacesChecker
 from prism_ai_lint.terminal_view import Tty
 from prism_ai_lint.tui_app import TuiApp
 from prism_ai_lint.tui_services import TuiServices
+from prism_ai_lint.usage_analyzer import UsageAnalyzer
+from prism_ai_lint.usage_report import UsageReport
 
 
 def _detect_version() -> str:
@@ -7096,6 +7098,17 @@ def guard_check(data: dict) -> str | None:
     return _guard_checker().guard_check(data)
 
 
+def run_usage(args: argparse.Namespace) -> int:
+    """--usage (D-050): add up the project's recent local session transcripts; read only, nothing sent."""
+    repo = (args.repos[0] if args.repos else Path.cwd()).expanduser()
+    data = UsageAnalyzer().analyze(UsageAnalyzer.sessions_for(repo, config_dir(), args.usage_sessions))
+    if args.format == "json":
+        print(json.dumps(data, indent=2))
+    else:
+        print(UsageReport().render(data, str(repo)))
+    return 0
+
+
 def run_guard() -> int:
     return _guard_checker().run_guard(check=guard_check)
 
@@ -7641,6 +7654,18 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0911, PLR0912,
         "./.prism-ai-lint/plugins only after an interactive yes (never in CI or pre-commit)",
     )
     ap.add_argument("--list-plugins", action="store_true", help="list discovered check plugins and exit")
+    ap.add_argument(
+        "--usage",
+        action="store_true",
+        help="measured token use of the project's recent Claude Code sessions (local transcripts, read only) and exit",
+    )
+    ap.add_argument(
+        "--usage-sessions",
+        type=int,
+        default=10,
+        metavar="N",
+        help="sessions read by --usage, newest first (default 10)",
+    )
     # No arguments at all: show help (with defaults) instead of silently scanning cwd.
     if not (argv if argv is not None else sys.argv[1:]):
         ap.print_help()
@@ -7729,6 +7754,8 @@ def main(argv: list[str] | None = None) -> int:  # noqa: C901, PLR0911, PLR0912,
     if args.update_check:
         SelfUpdater().check(args, force=True)
         return 0
+    if args.usage:
+        return run_usage(args)
     if args.catalog:
         load_catalog(args.catalog)
     load_plugins(args.plugin_dir, PluginTrust.is_interactive(args.format, args.quiet) and not args.list_plugins)
