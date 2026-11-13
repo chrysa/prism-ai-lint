@@ -83,6 +83,13 @@ jobs:
             --fail-under=60
           COVERAGE_FILE="$PWD/.coverage" python -m coverage xml --rcfile="$PWD/pyproject.toml" \
             -o .reports/coverage.xml
+      - name: Sonar project version (latest release tag)
+        id: sonar-version
+        if: matrix.python-version == '3.13' && env.SONAR_TOKEN != ''
+        # The "previous version" new-code period only moves when sonar.projectVersion changes.
+        run: echo "version=$(git tag --list 'v*' --sort=-v:refname | head -n1)" >> "$GITHUB_OUTPUT"
       - name: SonarCloud scan (coverage included)
         if: matrix.python-version == '3.13' && env.SONAR_TOKEN != ''
         uses: SonarSource/sonarqube-scan-action@e805d875275f728fac1885b413934be6d7c63f65 # v8.4.1
+        with:
+          args: -Dsonar.projectVersion=${{ steps.sonar-version.outputs.version || '0.0.0' }}
