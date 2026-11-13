@@ -4,6 +4,15 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-049 · Context injected on every call is reported; a hook in two scopes is a duplicate
+`HOOK_CONTEXT_REPEATED` (info) reports a command hook on PreToolUse, PostToolUse, PostToolUseFailure or
+UserPromptSubmit that injects text: an inline `additionalContext` (with its size in tokens), an `echo`/`printf` on
+UserPromptSubmit (stdout becomes context), or a script whose source emits `additionalContext`. `HOOK_DUPLICATE_SCOPE`
+(warn) reports the same event, matcher and command in user and project settings: all scopes run, so it runs twice.
+Both are read only. **Why:** injected text stays in the conversation and is re-read on every later turn; one long
+session (2026-11-13) carried ~975 copies of a graphify hint declared in both scopes, ~200 prompt reminders and ~135
+pytest hints. **Reverse when:** Claude Code deduplicates injected context or hooks across scopes.
+
 ## D-047 · Model per task: judgment subagents off Haiku, mechanical ones on it
 Generated `code-reviewer`, `security-auditor` and `infra-reviewer` now pin `model: sonnet`; `test-runner` keeps
 `haiku`. `SUBAGENT_MODEL_UNDERSIZED` (warn) reports a security or review subagent (`review`, `audit`, `secur`,

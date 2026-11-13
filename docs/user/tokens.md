@@ -22,6 +22,7 @@ potential savings of acting on them.
 | Mechanical subagents on a light model; heavy model not the session default | lint (`TOKEN_MODEL`, `TOKEN_SUBAGENT_MODEL`) |
 | Security and review subagents never on Haiku (pinned or inherited); no legacy model id in agents or skills | lint (`SUBAGENT_MODEL_UNDERSIZED`, `MODEL_LEGACY`); `--generate` pins `model: sonnet` on code-reviewer, security-auditor, infra-reviewer |
 | Instructions duplicated between user and project scope | lint (`INSTR_DUPLICATED`) |
+| Hooks that add text on every tool call or prompt (re-read every later turn); the same hook in user and project scope (runs twice) | lint (`HOOK_CONTEXT_REPEATED`, `HOOK_DUPLICATE_SCOPE`) |
 | Output compression with rtk (Bash) and llmtrim when the context is heavy | lint (`LLMTRIM_SUGGESTED`), rtk routing |
 
 ## Interactive restructuring (`-i`)
