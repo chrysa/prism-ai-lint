@@ -208,6 +208,8 @@ prism_ai_lint/
   guard_checker.py
   guard_command.py
   hook_checker.py
+  hook_context_checker.py
+  import_overlap_checker.py
   instruction_checker.py
   issue_reporter.py
   json_key_order.py
@@ -232,11 +234,15 @@ prism_ai_lint/
   self_update.py
   self_update_config.py
   skill_agent_checker.py
+  subagent_model_checker.py
   surfaces_checker.py
   terminal_view.py
   tui_app.py
   tui_services.py
   update_followup.py
+  usage_analyzer.py
+  usage_report.py
+  usage_totals.py
 pyproject.toml
 reports/
   plans/
@@ -247,11 +253,15 @@ reports/
     dated-references.md
     design-contract-sections.md
     fix-plan-transactions.md
+    hook-context-repeated.md
+    import-overlap.md
+    model-per-task.md
     plugin-trust-gate.md
     quality-ratchet.md
     sarif-output.md
     security-test-matrix.md
     structured-findings.md
+    usage-report.md
 scripts/
   gen_context_files.py
   quality_gate.py
@@ -328,8 +338,10 @@ tests/
   test_heaviest_items.py
   test_hook_checker.py
   test_hook_conflict.py
+  test_hook_context.py
   test_hook_fields_session_context.py
   test_hook_interpreter_scripts.py
+  test_import_overlap.py
   test_indented_fence.py
   test_instruction_style.py
   test_interactive.py
@@ -345,6 +357,7 @@ tests/
   test_min_level.py
   test_mod_checker.py
   test_model_lineup.py
+  test_model_per_task.py
   test_other_tools.py
   test_other_tools_checker.py
   test_pdf_checker.py
@@ -385,6 +398,7 @@ tests/
   test_untrusted_policy_model.py
   test_update_check.py
   test_update_followup.py
+  test_usage_report.py
   test_version_detect.py
   test_why_manual.py
 
@@ -431,8 +445,8 @@ prism_ai_lint/git_runner.py — Small git command runner used by prism-ai-lint i
 prism_ai_lint/guard_checker.py — PreToolUse checks that block configuration loosening and unvalidated critical edits.
 prism_ai_lint/guard_command.py — The prism-ai-lint guard as a hook command: recognise a plain call and build the canonical one.
 prism_ai_lint/hook_checker.py — Hook configuration checks: events, matchers, handlers and hook scripts.
+prism_ai_lint/hook_context_checker.py — Hooks that add context on every tool call or prompt, and hooks declared in two scopes (D-049).
+prism_ai_lint/import_overlap_checker.py — INSTR_IMPORT_OVERLAP: lines an always-loaded instruction file repeats from a file it imports (D-048).
 prism_ai_lint/instruction_checker.py — Instruction files, rules and auto memory: size, @imports, AGENTS.md wiring, rule frontmatter.
 prism_ai_lint/issue_reporter.py — Anonymized issue report: unfixed findings rendered as Markdown for the public tracker.
 prism_ai_lint/json_key_order.py — Keep a JSON file's sorted key order across repairs.
-prism_ai_lint/llmtrim_checker.py — llmtrim integration checker — detect and recommend compression.
-prism_ai_lint/mcp_checker.py — MCP configuration checks: .mcp.json servers and the read-only ~/.claude.json.

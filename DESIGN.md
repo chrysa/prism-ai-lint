@@ -36,6 +36,10 @@ change.
   accept/skip; critical files ask for human validation. **[implemented]**
 - **Density:** repeated codes collapse into groups unless `--all`; the brief summary comes first.
 
+- **J4 — Measure:** `prism-ai-lint --usage` → totals, then hook-injected context, tool output, repeated reads and
+  failing MCP servers, most costly first; read only, exit 0; `--format json` carries `usage_schema_version`.
+  Counts and short hook previews only, never prompt or tool content. **[implemented]**
+
 ## 4. Identity
 
 A plain terminal tool: no logo, no banner art, no brand palette. Colour only reinforces severity

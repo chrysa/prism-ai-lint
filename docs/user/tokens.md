@@ -22,7 +22,20 @@ potential savings of acting on them.
 | Mechanical subagents on a light model; heavy model not the session default | lint (`TOKEN_MODEL`, `TOKEN_SUBAGENT_MODEL`) |
 | Security and review subagents never on Haiku (pinned or inherited); no legacy model id in agents or skills | lint (`SUBAGENT_MODEL_UNDERSIZED`, `MODEL_LEGACY`); `--generate` pins `model: sonnet` on code-reviewer, security-auditor, infra-reviewer |
 | Instructions duplicated between user and project scope | lint (`INSTR_DUPLICATED`) |
+| An always-loaded file repeating lines of a file it `@imports` (e.g. a standards block in both `CLAUDE.md` and the imported `AGENTS.md`) | lint (`INSTR_IMPORT_OVERLAP`, with the tokens paid twice) |
+| Hooks that add text on every tool call or prompt (re-read every later turn); the same hook in user and project scope (runs twice) | lint (`HOOK_CONTEXT_REPEATED`, `HOOK_DUPLICATE_SCOPE`) |
 | Output compression with rtk (Bash) and llmtrim when the context is heavy | lint (`LLMTRIM_SUGGESTED`), rtk routing |
+
+## Measured use (`--usage`)
+
+`prism-ai-lint [PATH] --usage` reads the project's recent Claude Code session transcripts
+(`<config dir>/projects/<project>/*.jsonl`, newest `--usage-sessions N`, default 10) and adds up what was really
+sent: model calls, input, cache read, cache write and output tokens, compactions, the hook-injected texts that cost
+the most (count × size), tool output by tool, files read more than once, and MCP servers that failed to connect.
+Read only and offline; nothing is sent. Only counts, sizes, tool names, read paths, hook names and the first 60
+characters of hook-injected text are shown; prompts, tool output and model output never are. `--format json`
+prints the same data (`usage_schema_version: 1`). The transcript format is internal to Claude Code: unknown records
+are skipped.
 
 ## Interactive restructuring (`-i`)
 
