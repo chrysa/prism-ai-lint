@@ -232,6 +232,7 @@ prism_ai_lint/
   self_update.py
   self_update_config.py
   skill_agent_checker.py
+  subagent_model_checker.py
   surfaces_checker.py
   terminal_view.py
   tui_app.py
@@ -247,6 +248,7 @@ reports/
     dated-references.md
     design-contract-sections.md
     fix-plan-transactions.md
+    model-per-task.md
     plugin-trust-gate.md
     quality-ratchet.md
     sarif-output.md
@@ -345,6 +347,7 @@ tests/
   test_min_level.py
   test_mod_checker.py
   test_model_lineup.py
+  test_model_per_task.py
   test_other_tools.py
   test_other_tools_checker.py
   test_pdf_checker.py
