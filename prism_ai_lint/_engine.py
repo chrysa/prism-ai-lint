@@ -160,6 +160,7 @@ from prism_ai_lint.guard_checker import CONFIG_HINT as CONFIG_HINT
 from prism_ai_lint.guard_checker import GUARD_MARKER as GUARD_MARKER
 from prism_ai_lint.guard_checker import GuardChecker
 from prism_ai_lint.hook_checker import HookChecker
+from prism_ai_lint.import_overlap_checker import ImportOverlapChecker
 from prism_ai_lint.instruction_checker import InstructionChecker
 from prism_ai_lint.issue_reporter import Anonymizer, IssueReporter, local_identity
 from prism_ai_lint.llmtrim_checker import LlmtrimChecker
@@ -742,6 +743,11 @@ HINTS: dict[str, tuple[str, str]] = {  # code -> (why/how, reference)
         DOCS + "memory#write-effective-instructions",
     ),
     "INSTR_DUPLICATED": ("Same lines in user and project instructions are paid twice.", ""),
+    "INSTR_IMPORT_OVERLAP": (
+        "An imported file loads at launch with the file that imports it: lines present in both are paid twice "
+        "every session. Keep them in the imported file (or fix the generator that writes both).",
+        DOCS + "memory",
+    ),
     "INSTR_PROSE": (
         "An agent parses a bulleted rule faster than a paragraph, and bullets cost fewer tokens.",
         DOCS + "memory#write-effective-instructions",
@@ -1664,6 +1670,7 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
 
 
 _INSTRUCTIONS = InstructionChecker()
+_IMPORT_OVERLAP = ImportOverlapChecker()
 _SKILLS = SkillAgentChecker(_INSTRUCTIONS)
 
 
@@ -6408,6 +6415,7 @@ def lint_repo(repo: Path, policy: dict, rep: Report, history: bool, user_text: s
     DESIGN_CONTRACTS.check_repo(repo, policy, rep, _INSTRUCTIONS)
     _INSTRUCTIONS.check_agents_md(repo, policy, rep)
     _INSTRUCTIONS.check_rendered(repo, policy, rep)
+    _IMPORT_OVERLAP.check_repo(repo, policy, rep)
     if user_text and texts:
         min_len = policy["instructions"]["min_duplicate_line_len"]
         norm = lambda t: {l.strip().lower() for l in strip_code(t).splitlines() if len(l.strip()) >= min_len}
