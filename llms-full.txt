@@ -240,6 +240,9 @@ prism_ai_lint/
   tui_app.py
   tui_services.py
   update_followup.py
+  usage_analyzer.py
+  usage_report.py
+  usage_totals.py
 pyproject.toml
 reports/
   plans/
@@ -258,6 +261,7 @@ reports/
     sarif-output.md
     security-test-matrix.md
     structured-findings.md
+    usage-report.md
 scripts/
   gen_context_files.py
   quality_gate.py
@@ -394,6 +398,7 @@ tests/
   test_untrusted_policy_model.py
   test_update_check.py
   test_update_followup.py
+  test_usage_report.py
   test_version_detect.py
   test_why_manual.py
 
@@ -409,8 +414,6 @@ requires-python: >=3.13
 examples/plugins/example_check.py — Example prism-ai-lint plugin.
 prism-ai-lint.py
 prism_ai_lint/__init__.py
-prism_ai_lint/_engine.py
-prism_ai_lint/_engine.py
 prism_ai_lint/_engine.py
 prism_ai_lint/_markup.py — Text helpers for Markdown instruction files: frontmatter, code spans, comments, @imports.
 prism_ai_lint/_reference.py — Reference data: docs snapshot (2026-10), attribution patterns and scaffold templates.
@@ -445,3 +448,5 @@ prism_ai_lint/hook_checker.py — Hook configuration checks: events, matchers, h
 prism_ai_lint/hook_context_checker.py — Hooks that add context on every tool call or prompt, and hooks declared in two scopes (D-049).
 prism_ai_lint/import_overlap_checker.py — INSTR_IMPORT_OVERLAP: lines an always-loaded instruction file repeats from a file it imports (D-048).
 prism_ai_lint/instruction_checker.py — Instruction files, rules and auto memory: size, @imports, AGENTS.md wiring, rule frontmatter.
+prism_ai_lint/issue_reporter.py — Anonymized issue report: unfixed findings rendered as Markdown for the public tracker.
+prism_ai_lint/json_key_order.py — Keep a JSON file's sorted key order across repairs.

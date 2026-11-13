@@ -123,7 +123,7 @@ prism-ai-lint . --align --fix      # mirror deny/ask rules and the guard between
 | `--strict` | Exit 1 on warnings (for CI) |
 | `--format json` | Machine-readable output |
 
-**More**: `--policy FILE`, `--catalog FILE`, `--plugin-dir DIR` (trusted check plugins; current-directory plugins load only after an interactive yes, see [docs/user/plugins.md](docs/user/plugins.md)), `--guard`, `--dump-reference`, `--print-policy`, `--list-plugins`, `--restore [DIR]`, `--no-cli`, `--no-rtk`, `--no-scaffold`, `--no-update-check`, `--graphify`, `--rtk-report`, `--report-issue`.
+**More**: `--policy FILE`, `--catalog FILE`, `--plugin-dir DIR` (trusted check plugins; current-directory plugins load only after an interactive yes, see [docs/user/plugins.md](docs/user/plugins.md)), `--guard`, `--dump-reference`, `--print-policy`, `--list-plugins`, `--usage` (measured token use of recent sessions, see [docs/user/tokens.md](docs/user/tokens.md)), `--restore [DIR]`, `--no-cli`, `--no-rtk`, `--no-scaffold`, `--no-update-check`, `--graphify`, `--rtk-report`, `--report-issue`.
 
 `--report-issue` prints an anonymized Markdown body for the findings that have no automatic fix (paths, hosts, e-mails, URLs, names and quoted values replaced by stable tokens; secrets removed). It is a local preview: nothing is ever sent. Forbid it with `PRISM_AI_LINT_REPORTING=off` or `[reporting] mode = "off"`.
 

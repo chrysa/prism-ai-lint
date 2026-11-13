@@ -4,6 +4,15 @@ Why the project is the way it is — the rationale an agent would otherwise re-d
 undo) each session. History of *what* changed is in [CHANGELOG.md](CHANGELOG.md); this file
 records *why*. Newest first. Each entry: decision, why, and what would reverse it.
 
+## D-050 · `--usage` measures token use from local transcripts
+`prism-ai-lint [PATH] --usage` reads the newest `--usage-sessions` (10) transcripts of the project in
+`<config dir>/projects/<slug>/` and reports model calls and input / cache-read / cache-write / output tokens (one
+count per API response: a response written as several records is counted once), compactions, hook-injected texts
+ranked by count × size, tool output by tool, files read more than once and MCP servers that failed to connect. Read
+only, offline, stdlib. Only counts, sizes, names, read paths and 60-character hook previews are shown. **Why:** the
+TOKENS block estimates what is always loaded; it cannot see what hooks inject per call or what tools return.
+Measuring ranks the levers (audit V1 §8: separate estimates from measurements). **Reverse when:** Claude Code
+exposes the same breakdown itself, or its transcript format stops carrying usage per response.
 ## D-049 · Context injected on every call is reported; a hook in two scopes is a duplicate
 `HOOK_CONTEXT_REPEATED` (info) reports a command hook on PreToolUse, PostToolUse, PostToolUseFailure or
 UserPromptSubmit that injects text: an inline `additionalContext` (with its size in tokens), an `echo`/`printf` on
