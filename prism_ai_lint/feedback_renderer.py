@@ -22,6 +22,7 @@ _WHY_MANUAL_FR = {
     "ATTR_HISTORY": "reecrire l'historique publie est ta decision",
     "API_KEY_LEAK": "l'outil ne revoque ni ne supprime jamais une cle ; a revoquer a la main",
     "SETTINGS_UNKNOWN_KEY": "cle peut-etre plus recente que le schema ; supprimer serait risque",
+    "SETTINGS_MISNAMED_KEY": "renommer la cle active un reglage ; la valeur reste ton choix",
     "TOKEN_AGENT_PACK": "regrouper des subagents en plugin se fait en revue (-i)",
     "SECRET_INLINE": "un secret en clair doit etre retire a la main (reference ${VAR}/vault)",
 }
@@ -39,6 +40,7 @@ _WHY_MANUAL_EN = {
     "ATTR_HISTORY": "rewriting published history is your decision",
     "API_KEY_LEAK": "the tool never revokes or deletes a key; rotate it yourself",
     "SETTINGS_UNKNOWN_KEY": "the key may be newer than the schema; removing it would be risky",
+    "SETTINGS_MISNAMED_KEY": "renaming the key turns a setting on; the value is yours to choose",
     "TOKEN_AGENT_PACK": "grouping subagents into a plugin is done in review (-i)",
     "SECRET_INLINE": "an inline secret must be removed by hand (reference ${VAR}/vault)",
 }
