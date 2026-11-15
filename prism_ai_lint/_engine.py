@@ -104,6 +104,7 @@ from prism_ai_lint._reference import (
     KNOWN_SETTINGS_KEYS,
     KNOWN_TOOLS,
     LEGACY_TOOLS,
+    MISNAMED_SETTINGS_KEYS,
     MODEL_SNAPSHOT,
     NO_MATCHER_EVENTS,
     PATH_TOOL_REMAP,
@@ -1544,7 +1545,10 @@ def check_settings(path: Path, base: Path, scope: str, policy: dict, rep: Report
     local = path.name == "settings.local.json"
 
     for k in data:
-        if k not in KNOWN_SETTINGS_KEYS and k != "mcpServers":
+        if k in MISNAMED_SETTINGS_KEYS:
+            hint = MISNAMED_SETTINGS_KEYS[k]
+            rep.add("warn", "SETTINGS_MISNAMED_KEY", path, f"{k!r} is not a settings key ({hint}); it is ignored")
+        elif k not in KNOWN_SETTINGS_KEYS and k != "mcpServers":
             close = difflib.get_close_matches(k, KNOWN_SETTINGS_KEYS, n=1, cutoff=0.8)
             hint = f"; did you mean {close[0]!r}?" if close else " (schema may be newer)"
             rep.add(
@@ -1850,6 +1854,10 @@ HINTS.update(
         "TOKEN_LISTING_BUDGET": (
             "Skill and subagent descriptions are sent every turn; manual-only skills can drop out of that listing.",
             DOCS + "skills",
+        ),
+        "SETTINGS_MISNAMED_KEY": (
+            "Not a key of the settings reference: the parser ignores it, so what it names is not configured.",
+            DOCS + "settings#available-settings",
         ),
         "SETTINGS_REMOVED_KEY": (
             "The docs list this key as removed: the parser accepts it, but it has no effect any more.",

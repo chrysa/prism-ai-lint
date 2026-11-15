@@ -14,6 +14,13 @@ DOCS_SNAPSHOT = "2026-10"
 # Settings keys the docs list as removed: still accepted by the parser, but they do nothing.
 REMOVED_SETTINGS_KEYS = {"teammateDefaultModel": "removed in Claude Code v2.1.234"}
 
+# Names found in shared configurations that the settings reference does not list. The parser ignores
+# them, so what they describe is not configured. Each maps to the hint shown to the author.
+MISNAMED_SETTINGS_KEYS = {
+    "autoCompact": "use 'autoCompactEnabled'",
+    "autoCompactThreshold": "the reference has no compaction threshold",
+}
+
 KNOWN_SETTINGS_KEYS = {
     "$schema",
     "additionalDirectories",
